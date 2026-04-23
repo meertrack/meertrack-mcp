@@ -1,0 +1,48 @@
+{
+  "$schema": "https://static.modelcontextprotocol.io/schemas/2025-12-11/server.schema.json",
+  "name": "com.meertrack/mcp-server",
+  "title": "Meertrack",
+  "description": "Competitive intelligence — track what competitors ship each week. Wraps the Meertrack v1 API as 8 read-only tools and 3 prompt workflows for digests, activity feeds, and competitor profiles.",
+  "version": "1.0.0",
+  "repository": {
+    "url": "https://github.com/meertrack/meertrack-mcp",
+    "source": "github"
+  },
+  "websiteUrl": "https://meertrack.com",
+  "packages": [
+    {
+      "registry_name": "npm",
+      "name": "@meertrack/mcp",
+      "version": "1.0.0",
+      "runtime_hint": "npx",
+      "environment_variables": [
+        {
+          "name": "MEERTRACK_API_KEY",
+          "description": "Meertrack production API key (mt_live_…). Mint at Settings → API Keys.",
+          "isRequired": true,
+          "isSecret": true
+        },
+        {
+          "name": "MEERTRACK_API_BASE_URL",
+          "description": "Optional upstream override; defaults to https://api.meertrack.com/v1.",
+          "isRequired": false,
+          "isSecret": false
+        }
+      ]
+    }
+  ],
+  "remotes": [
+    {
+      "type": "streamable-http",
+      "url": "https://mcp.meertrack.com/mcp",
+      "headers": [
+        {
+          "name": "Authorization",
+          "description": "Bearer mt_live_… — your Meertrack API key.",
+          "isRequired": true,
+          "isSecret": true
+        }
+      ]
+    }
+  ]
+}

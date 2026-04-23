@@ -1,0 +1,68 @@
+{
+  "name": "@meertrack/mcp",
+  "version": "1.0.0",
+  "description": "Model Context Protocol server for the Meertrack v1 API. Track what competitors ship each week from Claude, Cursor, and other MCP-aware clients.",
+  "type": "module",
+  "bin": {
+    "meertrack-mcp": "dist/index.js"
+  },
+  "main": "dist/index.js",
+  "exports": {
+    ".": "./dist/index.js"
+  },
+  "files": [
+    "dist",
+    "README.md",
+    "LICENSE"
+  ],
+  "engines": {
+    "node": ">=20"
+  },
+  "scripts": {
+    "build": "tsc",
+    "dev:stdio": "tsx src/index.ts",
+    "dev:http": "tsx src/index.ts --http",
+    "start": "node dist/index.js",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "lint": "eslint src test",
+    "typecheck": "tsc --noEmit",
+    "check:version-sync": "node scripts/check-version-sync.mjs",
+    "check:changelog": "node scripts/check-changelog.mjs",
+    "prepublishOnly": "npm run check:version-sync && npm run typecheck && npm run test && npm run build"
+  },
+  "keywords": [
+    "mcp",
+    "model-context-protocol",
+    "meertrack",
+    "competitive-intelligence",
+    "claude",
+    "cursor"
+  ],
+  "author": "Meertrack",
+  "license": "MIT",
+  "homepage": "https://meertrack.com",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/meertrack/meertrack-mcp.git"
+  },
+  "bugs": {
+    "url": "https://github.com/meertrack/meertrack-mcp/issues"
+  },
+  "dependencies": {
+    "@hono/node-server": "^1.19.0",
+    "@modelcontextprotocol/sdk": "^1.18.0",
+    "hono": "^4.6.0",
+    "zod": "^3.23.8"
+  },
+  "devDependencies": {
+    "@types/node": "^22.10.0",
+    "@typescript-eslint/eslint-plugin": "^8.15.0",
+    "@typescript-eslint/parser": "^8.15.0",
+    "eslint": "^9.15.0",
+    "prettier": "^3.3.3",
+    "tsx": "^4.19.2",
+    "typescript": "^5.6.3",
+    "vitest": "^2.1.5"
+  }
+}

@@ -1,0 +1,30 @@
+{
+  "$schema": "https://glama.ai/mcp/schemas/server.json",
+  "maintainers": ["meertrack"],
+  "display_name": "Meertrack",
+  "description": "Track what competitors ship each week from Claude, Cursor, and other MCP-aware clients. Wraps the Meertrack v1 competitive-intelligence API.",
+  "categories": ["productivity", "business"],
+  "tags": ["competitive-intelligence", "saas", "digest", "monitoring"],
+  "transport": ["stdio", "streamable-http"],
+  "endpoint": "https://mcp.meertrack.com/mcp",
+  "auth": {
+    "type": "bearer",
+    "header": "Authorization",
+    "instructions": "Mint a production API key (mt_live_…) at Settings → API Keys in the Meertrack app. Send it as `Authorization: Bearer mt_live_…` for the hosted endpoint, or `MEERTRACK_API_KEY` env var for the local stdio package."
+  },
+  "tools_count": 8,
+  "prompts_count": 3,
+  "features": [
+    "8 read-only tools mapping 1:1 to the Meertrack v1 REST endpoints",
+    "3 ready-made prompts: weekly_recap, competitor_deep_dive, whats_new",
+    "Local stdio (npx) and hosted Streamable HTTP transports, both shipped day 1",
+    "Per-request bearer forwarding — the hosted server stores no credentials",
+    "Cursor-based pagination and rate-limit reset surfaced through to the agent"
+  ],
+  "links": {
+    "homepage": "https://meertrack.com",
+    "docs": "https://github.com/meertrack/meertrack-mcp#readme",
+    "source": "https://github.com/meertrack/meertrack-mcp",
+    "issues": "https://github.com/meertrack/meertrack-mcp/issues"
+  }
+}

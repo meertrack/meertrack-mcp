@@ -1,0 +1,11 @@
+{
+  "servers": {
+    "meertrack": {
+      "command": "npx",
+      "args": ["-y", "@meertrack/mcp"],
+      "env": {
+        "MEERTRACK_API_KEY": "mt_live_REPLACE_ME"
+      }
+    }
+  }
+}
