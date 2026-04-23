@@ -11,13 +11,12 @@ jobs:
   publish:
     name: npm publish (with provenance)
     runs-on: ubuntu-latest
-    # `id-token: write` is required for npm provenance attestation. The npm
-    # package handles bearer tokens, so attesting the artifact came from this
-    # repo's CI matters. Provenance does NOT work with legacy npm tokens —
-    # use a granular access token or trusted publisher config.
+    # Provenance attestation (--provenance) is disabled for the bootstrap
+    # publish because granular-access tokens can't mint one. After v1.0.0
+    # lands, switch to npm Trusted Publisher (OIDC) and restore --provenance
+    # plus `id-token: write` here.
     permissions:
       contents: read
-      id-token: write
 
     steps:
       - uses: actions/checkout@v4
@@ -58,7 +57,7 @@ jobs:
       - name: Build
         run: npm run build
 
-      - name: Publish to npm with provenance
-        run: npm publish --provenance --access public
+      - name: Publish to npm
+        run: npm publish --access public
         env:
           NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
