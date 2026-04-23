@@ -1,10 +1,9 @@
 #!/usr/bin/env node
 /**
- * Fails the CI build if `package.json` and `server.json` disagree on version.
- *
- * `src/server.ts` reads the version from `package.json` at runtime via
- * `createRequire`, so there is no third hardcoded copy to keep in sync — the
- * registry descriptor is the only file that duplicates the version string.
+ * Fails the CI build if `package.json` and `server.json` disagree on version,
+ * package identifier, or mcpName — the three fields the MCP Registry uses
+ * to verify a publish. `src/server.ts` reads the version from `package.json`
+ * at runtime via `createRequire`, so there is no third copy to keep in sync.
  *
  * Usage: `node scripts/check-version-sync.mjs`. Exit 0 on match, 1 on mismatch.
  */
@@ -31,8 +30,14 @@ if (server.version !== pkg.version) {
   );
 }
 
+if (pkg.mcpName !== server.name) {
+  failures.push(
+    `package.json mcpName (${pkg.mcpName}) does not match server.json name (${server.name}).`,
+  );
+}
+
 const npmPackage = (server.packages ?? []).find(
-  (p) => p.registry_name === "npm" && p.name === pkg.name,
+  (p) => p.registryType === "npm" && p.identifier === pkg.name,
 );
 if (!npmPackage) {
   failures.push(

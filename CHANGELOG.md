@@ -15,6 +15,19 @@ Tool schemas are part of the public API contract; agents cache them. So:
 
 ## [Unreleased]
 
+## [1.0.1] - 2026-04-23
+
+### Changed
+
+- `server.json`: migrate packages[] to 2025-12-11 schema field names
+  (`registryType`, `identifier`, `runtimeHint`, `environmentVariables`) and
+  add the now-required `transport: { type: "stdio" }` block. No behavior
+  change for clients; required for MCP Registry publishing.
+- `package.json`: add `mcpName: "com.meertrack/mcp-server"` so the registry
+  can verify npm package ownership against the server entry.
+- `scripts/check-version-sync.mjs`: check `registryType`/`identifier` and
+  assert `package.json` `mcpName` equals `server.json` `name`.
+
 ## [1.0.0] - 2026-04-23
 
 ### Added
