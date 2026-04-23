@@ -3,7 +3,7 @@
   "name": "com.meertrack/mcp-server",
   "title": "Meertrack",
   "description": "Competitive intelligence — track what competitors ship each week. Wraps the Meertrack v1 API as 8 read-only tools and 3 prompt workflows for digests, activity feeds, and competitor profiles.",
-  "version": "1.0.1",
+  "version": "1.0.2",
   "repository": {
     "url": "https://github.com/meertrack/meertrack-mcp",
     "source": "github"
@@ -13,7 +13,7 @@
     {
       "registryType": "npm",
       "identifier": "@meertrack/mcp",
-      "version": "1.0.1",
+      "version": "1.0.2",
       "runtimeHint": "npx",
       "transport": {
         "type": "stdio"

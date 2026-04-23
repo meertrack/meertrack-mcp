@@ -15,6 +15,22 @@ Tool schemas are part of the public API contract; agents cache them. So:
 
 ## [Unreleased]
 
+## [1.0.2] - 2026-04-23
+
+### Fixed
+
+- `.github/workflows/publish.yml`: upgrade npm before publishing. Node 20
+  ships with npm 10.x, which does not exchange a GitHub Actions OIDC token
+  for an npm bearer when a Trusted Publisher is configured — it only signs
+  provenance. That left the publish `PUT` unauthenticated and npm returned
+  a 404 for the scoped package. npm 11.5.1+ performs the token exchange
+  automatically; we now install the latest npm in CI before `npm ci`.
+
+### Note
+
+- 1.0.1 was tagged but never reached npm due to the CI bug above. 1.0.2
+  is the first registry-ready release.
+
 ## [1.0.1] - 2026-04-23
 
 ### Changed
