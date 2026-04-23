@@ -1,41 +1,36 @@
-# Fly.io app config for the Meertrack MCP wrapper.
+# fly.toml app configuration file generated for meertrack-mcp on 2026-04-23T15:39:34-05:00
 #
-# Initial deploy: `fly launch --ha=false --smoke-checks=false`.
-# `--smoke-checks=false` is required — Fly's smoke prober sends a non-MCP
-# request that a Streamable HTTP server will reject, failing the deploy.
+# See https://fly.io/docs/reference/configuration/ for information about how to use this file.
 #
-# Multi-tenant: bearers are forwarded per-request from clients. DO NOT set
-# `FLY_MCP_BEARER_TOKEN` as a secret — the MCP layer holds no token of its own.
 
-app = "meertrack-mcp"
-primary_region = "sjc"
+app = 'meertrack-mcp'
+primary_region = 'iad'
 
 [build]
 
 [env]
-  PORT = "3001"
-  # Pin the public host so the PRM document and `WWW-Authenticate` header
-  # advertise the correct URL even before requests arrive.
-  MEERTRACK_MCP_PUBLIC_HOST = "mcp.meertrack.com"
-  MEERTRACK_MCP_PRM_URL = "https://mcp.meertrack.com/.well-known/oauth-protected-resource"
+  MEERTRACK_MCP_PRM_URL = 'https://mcp.meertrack.com/.well-known/oauth-protected-resource'
+  MEERTRACK_MCP_PUBLIC_HOST = 'mcp.meertrack.com'
+  PORT = '3001'
 
 [http_service]
   internal_port = 3001
   force_https = true
-  auto_stop_machines = "stop"
+  auto_stop_machines = 'stop'
   auto_start_machines = true
   min_machines_running = 1
-  processes = ["app"]
+  processes = ['app']
 
   [[http_service.checks]]
-    grace_period = "10s"
-    interval = "30s"
-    method = "GET"
-    timeout = "5s"
-    path = "/health"
+    interval = '30s'
+    timeout = '5s'
+    grace_period = '10s'
+    method = 'GET'
+    path = '/health'
 
 [[vm]]
-  size = "shared-cpu-1x"
-  memory = "256mb"
-  cpu_kind = "shared"
+  size = 'shared-cpu-1x'
+  memory = '256mb'
+  cpu_kind = 'shared'
   cpus = 1
+  memory_mb = 256
