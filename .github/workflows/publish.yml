@@ -11,12 +11,9 @@ jobs:
   publish:
     name: npm publish (with provenance)
     runs-on: ubuntu-latest
-    # Provenance attestation (--provenance) is disabled for the bootstrap
-    # publish because granular-access tokens can't mint one. After v1.0.0
-    # lands, switch to npm Trusted Publisher (OIDC) and restore --provenance
-    # plus `id-token: write` here.
     permissions:
       contents: read
+      id-token: write
 
     steps:
       - uses: actions/checkout@v4
@@ -58,6 +55,4 @@ jobs:
         run: npm run build
 
       - name: Publish to npm
-        run: npm publish --access public
-        env:
-          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
+        run: npm publish --access public --provenance
