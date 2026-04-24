@@ -2,7 +2,7 @@
   "$schema": "https://static.modelcontextprotocol.io/schemas/2025-12-11/server.schema.json",
   "name": "com.meertrack/mcp-server",
   "title": "Meertrack",
-  "description": "Competitive intelligence — track what competitors ship each week. Wraps the Meertrack v1 API as 8 read-only tools and 3 prompt workflows for digests, activity feeds, and competitor profiles.",
+  "description": "Competitive intelligence — track what competitors ship each week. 8 tools, 3 prompt workflows.",
   "version": "1.0.2",
   "repository": {
     "url": "https://github.com/meertrack/meertrack-mcp",

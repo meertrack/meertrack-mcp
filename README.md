@@ -296,7 +296,8 @@ MCP tool schemas are part of the public API contract; agents cache them. So:
 - **PATCH**: bug fixes, description improvements, internal refactors with no
   schema impact.
 
-See [CHANGELOG.md](CHANGELOG.md) for the release history.
+See [CHANGELOG.md](CHANGELOG.md) for the release history, and
+[docs/RELEASING.md](docs/RELEASING.md) for the maintainer publish procedure.
 
 ## Security & privacy
 

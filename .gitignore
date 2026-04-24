@@ -9,3 +9,7 @@ coverage/
 .DS_Store
 .vscode/
 .idea/
+
+# DNS auth keypair for MCP Registry publishing
+*.key.pem
+dns-privkey.hex
