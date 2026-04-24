@@ -457,7 +457,7 @@ export type Workspace = z.infer<typeof Workspace>;
 
 export const MeResponse = z.object({
   data: z.object({
-    key: ApiKey,
+    key: ApiKey.nullable(),
     workspace: Workspace.nullable(),
   }),
 });
