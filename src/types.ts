@@ -175,7 +175,9 @@ export const BlogPostItem = z.object({
   title: z.string().nullable().optional(),
   url: z.string().nullable().optional(),
   description: z.string().nullable().optional(),
-  key_points: z.array(z.string()).nullable().optional(),
+  // Stored as free-form text in the DB (`s_blog_posts.key_points text null`);
+  // not a structured array despite the name.
+  key_points: z.string().nullable().optional(),
   image_url: z.string().nullable().optional(),
   posted_date: z.string().datetime({ offset: true }).nullable().optional(),
 });
@@ -199,7 +201,11 @@ export type JobListingItem = z.infer<typeof JobListingItem>;
 
 export const PricingItem = z.object({
   ...sectionItemBase,
-  pricing_data: z.record(z.string(), z.unknown()).nullable().optional(),
+  // Opaque scraper payload — object OR array shape depending on the competitor.
+  pricing_data: z
+    .union([z.record(z.string(), z.unknown()), z.array(z.unknown())])
+    .nullable()
+    .optional(),
   changes: z.string().nullable().optional(),
   is_live: z.boolean().nullable().optional(),
   last_updated_at: z.string().datetime({ offset: true }).nullable().optional(),

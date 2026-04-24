@@ -1,6 +1,6 @@
 {
   "name": "@meertrack/mcp",
-  "version": "1.0.2",
+  "version": "1.1.0",
   "mcpName": "com.meertrack/mcp-server",
   "description": "Model Context Protocol server for the Meertrack v1 API. Track what competitors ship each week from Claude, Cursor, and other MCP-aware clients.",
   "type": "module",

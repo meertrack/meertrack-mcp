@@ -49,8 +49,15 @@ Numbered flow:
 2. **Bearer resolution.** In stdio mode, the bearer was captured once from
    `MEERTRACK_API_KEY` at process start. In HTTP mode, it's pulled per
    request from `Authorization` (preferred) or `?api_key=` (fallback).
-   Requests without a well-formed `mt_live_` bearer return 401 + a
-   `WWW-Authenticate` pointing at the PRM doc, without calling upstream.
+   The HTTP transport accepts two bearer shapes:
+   - **Static API keys** (`mt_live_…`): forwarded verbatim to upstream.
+   - **OAuth 2.1 access tokens** (JWTs): verified locally against the
+     authorization server's JWKS via `jose` (RS256, `iss=https://meertrack.com`,
+     `aud=https://mcp.meertrack.com/mcp`). The original JWT is forwarded to
+     upstream so `/api/v1/*` handlers can authorize the same way.
+   Requests with no or malformed credentials return 401 + `WWW-Authenticate:
+   Bearer realm="meertrack", resource_metadata=<PRM URL>` per RFC 9728,
+   without calling upstream.
 3. **Tool dispatch.** `McpServer` routes to the named tool, validates the
    zod input schema, and hands off to the handler.
 4. **Upstream call.** `MeertrackClient` issues a single `GET` to
@@ -88,9 +95,13 @@ server across requests with different bearers. Not a v1 optimization.
   Caching would need to be per-bearer, which at v1 traffic isn't worth it.
 - **No retries.** 429 and 5xx are surfaced to the agent; the agent decides
   whether to back off and retry.
-- **No OAuth authorization server.** V1 accepts static `mt_live_` bearers
-  and advertises that fact via Protected Resource Metadata (RFC 9728).
-  Full OAuth 2.1 is Phase 11.
+- **No authorization server in this repo.** The MCP server is a pure
+  OAuth 2.1 **resource server**. The authorization server (DCR, authorize,
+  token, revoke, consent UI) lives in the `meertrack_frontend` repo at
+  `https://meertrack.com`. The PRM endpoint advertises it via
+  `authorization_servers: ["https://meertrack.com"]` when the
+  `MEERTRACK_OAUTH_*` env vars are set; when unset, PRM returns
+  `authorization_servers: []` and only `mt_live_` keys are accepted.
 
 ## Deployment
 
@@ -101,12 +112,31 @@ server across requests with different bearers. Not a v1 optimization.
   `min_machines_running = 1` keeps one warm for launch traffic. Health check
   on `GET /health`.
 
+## OAuth 2.1 resource-server behavior
+
+When the three `MEERTRACK_OAUTH_*` env vars are set (`ISSUER`, `AUDIENCE`,
+`JWKS_URL`), the HTTP transport:
+
+- Advertises the AS in the PRM document (`authorization_servers`).
+- 302-redirects `GET /.well-known/oauth-authorization-server` to the issuer's
+  real metadata URL. Some MCP clients probe the RS for AS metadata before (or
+  instead of) consulting the PRM's `authorization_servers` pointer; the
+  redirect keeps them on the happy path.
+- Accepts JWTs alongside `mt_live_` keys. JWT verification uses `jose` with
+  a cached remote JWKS (`createRemoteJWKSet`), checks `iss`, `aud`, `exp`,
+  `iat`, and forwards the original JWT to upstream.
+- Always permits loopback HTTP origins (`http://localhost:*`,
+  `http://127.0.0.1:*`) through the origin allowlist. Bearer-auth endpoint
+  with no cookie state → DNS-rebinding / cookie-theft isn't the threat
+  model, and MCP dev tools (Inspector, Claude Desktop) register from
+  loopback origins with user-chosen ports.
+
+Disabling OAuth is an env-only operation (`fly secrets unset …`); no code
+change or redeploy needed. `mt_live_` keys keep working through the same
+code path.
+
 ## Spec deviations (documented)
 
-- **Bearer instead of OAuth.** MCP 2025-11-25 says auth on HTTP *should* be
-  OAuth-shaped. We serve a minimal RFC 9728 PRM stub (`authorization_servers:
-  []`) so spec-conformant clients can discover that this resource uses static
-  bearers. Full OAuth is Phase 11.
 - **Stateless only.** No `Mcp-Session-Id` issued; `GET /mcp` and `DELETE
   /mcp` return 405 with `Allow: POST`. Spec-compliant for servers that
   don't push notifications.

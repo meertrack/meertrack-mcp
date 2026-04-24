@@ -15,6 +15,49 @@ Tool schemas are part of the public API contract; agents cache them. So:
 
 ## [Unreleased]
 
+## [1.1.0] - 2026-04-24
+
+### Added
+
+- **OAuth 2.1 resource-server support.** HTTP transport now accepts JWT
+  access tokens issued by `https://meertrack.com` in addition to legacy
+  `mt_live_` keys. JWT verification uses `jose` with a cached remote JWKS;
+  PRM advertises the AS via `authorization_servers` when the
+  `MEERTRACK_OAUTH_ISSUER` / `MEERTRACK_OAUTH_AUDIENCE` /
+  `MEERTRACK_OAUTH_JWKS_URL` env vars are set. Opt-in: with no env vars,
+  behavior is unchanged. Rollback is env-only (`fly secrets unset …`).
+- `GET /.well-known/oauth-authorization-server` on the RS now 302-redirects
+  to the issuer's metadata URL when OAuth is configured. Works around MCP
+  clients that probe the RS for AS metadata instead of following PRM's
+  `authorization_servers` pointer.
+
+### Changed
+
+- Origin allowlist always permits loopback HTTP (`http://localhost:*`,
+  `http://127.0.0.1:*`). The HTTP endpoint authenticates via Bearer tokens
+  (no cookies), so DNS-rebinding / cross-site cookie theft isn't the threat
+  model, and MCP dev tools (Inspector, Claude Desktop) connect from
+  loopback with user-chosen ports.
+- `whoami` output: `data.key` is now nullable. OAuth-authenticated users
+  have no `mt_live_` key record, so upstream returns `key: null` and the
+  schema no longer requires a non-null key object.
+
+### Fixed
+
+- `list_competitors` `expand=compact` no longer returns validation errors.
+  `image_icon`, `created_at`, `social`, `pages` on `CompetitorDetail` are
+  now optional (compact responses omit them).
+- Dropped strict `.url()` validation on all URL-shaped output fields.
+  Upstream returns blank strings (`""`) for unset social / page URLs,
+  which are valid JSON but failed `z.string().url()`.
+- `key_points` on `blog-posts`, `press-posts`, `case-studies` is now
+  `string | null` (was `array<string> | null`). Upstream stores
+  `key_points` as free-form text (`s_blog_posts.key_points text`), so the
+  previous array schema rejected every non-null response.
+- `pricing_data` on `pricing` items now accepts both object and array
+  shapes. The scraper emits either depending on the competitor; the
+  object-only schema rejected array-shaped payloads.
+
 ## [1.0.2] - 2026-04-23
 
 ### Fixed

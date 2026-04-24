@@ -22,7 +22,7 @@ read-only tools** and **3 prompt workflows**. No backend changes, same
 | **Setup time** | 30 seconds (paste a JSON block) | 10 seconds (paste a URL) |
 | **Best for** | Individual Pro customers; all Claude Desktop plans; any IDE on your laptop | Team/Enterprise custom connectors; Claude.ai web; remote-capable IDEs |
 | **Runs where** | Your machine (`npx -y @meertrack/mcp`) | Meertrack's Fly.io fleet (`https://mcp.meertrack.com/mcp`) |
-| **Auth** | `MEERTRACK_API_KEY` env var | `Authorization: Bearer mt_live_…` header |
+| **Auth** | `MEERTRACK_API_KEY` env var | OAuth 2.1 (browser flow, recommended) or `Authorization: Bearer mt_live_…` header |
 | **Plan gating** | Works on Claude Pro, Team, Enterprise | Claude Desktop "Add custom connector" is **Team/Enterprise only** |
 
 **If you're on Claude Pro, use the local (stdio) path.** The "Add custom
@@ -174,10 +174,14 @@ https://mcp.meertrack.com/mcp
 
 Two auth paths are supported:
 
-- **OAuth 2.1** — Claude's Connectors Directory and any spec-conformant MCP
-  client will discover the authorization server at `/.well-known/oauth-protected-resource`
-  and drive the full authorize → token flow. No manual key handling; the user
-  clicks "Connect" and signs in at `meertrack.com`.
+- **OAuth 2.1 (recommended)** — spec-conformant MCP clients discover the
+  authorization server at `/.well-known/oauth-protected-resource`, perform
+  Dynamic Client Registration at `https://meertrack.com/oauth/register`, and
+  drive the full PKCE-gated authorize → token flow. The user clicks
+  "Connect", signs in at `meertrack.com`, hits Allow on the consent screen,
+  and is done. No key handling. Access tokens are 10-minute JWTs
+  (RS256, `aud=https://mcp.meertrack.com/mcp`); refresh tokens are rotated
+  per OAuth 2.1 §4.3.1.
 - **`Authorization: Bearer mt_live_…`** — paste a static API key for custom
   connectors, CLI scripts, and any client that doesn't implement OAuth
   discovery yet.
@@ -187,9 +191,13 @@ supports.
 
 ### Claude Desktop (Team / Enterprise only: "Add custom connector")
 
-Settings → Connectors → **Add custom connector** → paste the URL above and
-your bearer token when prompted. The "Add custom connector" button is not
-visible on Pro; use the stdio path above instead.
+Settings → Connectors → **Add custom connector** → paste the URL above.
+**Do not paste a bearer token** — leave the token field empty and click Add.
+Claude Desktop will open a browser window to `meertrack.com` for login and
+consent; on Allow, the connector surfaces the 8 tools automatically.
+
+The "Add custom connector" button is not visible on Pro; use the stdio path
+above instead.
 
 ### Claude.ai web (Connectors)
 
