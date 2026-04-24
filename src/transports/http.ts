@@ -98,6 +98,19 @@ export function createHttpApp(options: CreateHttpAppOptions) {
     }),
   );
 
+  // Some MCP clients (older Inspector builds) fall back to fetching AS metadata
+  // from the RS's own `.well-known/oauth-authorization-server` instead of
+  // following the PRM's `authorization_servers` pointer. If we 404 here, the
+  // client then guesses token/authorize URLs on the RS host. Redirect to the
+  // real AS metadata URL when OAuth is configured.
+  app.get("/.well-known/oauth-authorization-server", (c) => {
+    if (!options.oauth) return c.text("Not Found", 404);
+    return c.redirect(
+      `${options.oauth.issuer.replace(/\/$/, "")}/.well-known/oauth-authorization-server`,
+      302,
+    );
+  });
+
   const log = options.logger ?? defaultLogger;
   app.post(MCP_PATH, (c) => handleMcpPost(c, options, log));
 
