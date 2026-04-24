@@ -172,8 +172,18 @@ All remote clients point at the same URL:
 https://mcp.meertrack.com/mcp
 ```
 
-...with `Authorization: Bearer mt_live_…`. One shared hosted server. Nothing
-to install locally.
+Two auth paths are supported:
+
+- **OAuth 2.1** — Claude's Connectors Directory and any spec-conformant MCP
+  client will discover the authorization server at `/.well-known/oauth-protected-resource`
+  and drive the full authorize → token flow. No manual key handling; the user
+  clicks "Connect" and signs in at `meertrack.com`.
+- **`Authorization: Bearer mt_live_…`** — paste a static API key for custom
+  connectors, CLI scripts, and any client that doesn't implement OAuth
+  discovery yet.
+
+Both paths terminate at the same workspace; pick whichever your client
+supports.
 
 ### Claude Desktop (Team / Enterprise only: "Add custom connector")
 
@@ -301,6 +311,7 @@ See [CHANGELOG.md](CHANGELOG.md) for the release history, and
 
 ## Security & privacy
 
+- **Privacy policy**: [https://meertrack.com/privacy](https://meertrack.com/privacy)
 - [SECURITY.md](SECURITY.md): disclosure policy (`security@meertrack.com`),
   in-scope surface.
 - [docs/PRIVACY.md](docs/PRIVACY.md): the MCP layer is stateless; bearers are

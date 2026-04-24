@@ -5,6 +5,7 @@ import {
   buildWwwAuthenticateHeader,
   extractHttpBearer,
   type HttpAuthContext,
+  type OAuthConfig,
 } from "../auth.js";
 import { buildServer } from "../server.js";
 import { logger as defaultLogger, type Logger } from "../logger.js";
@@ -47,6 +48,13 @@ export interface CreateHttpAppOptions {
    * Used verbatim — include scheme + host + path.
    */
   protectedResourceMetadataUrl: string;
+  /**
+   * OAuth 2.1 configuration. When set:
+   *  - non-`mt_live_` bearers are verified as JWTs against `jwksUrl`
+   *  - PRM advertises `issuer` in `authorization_servers`
+   * When unset, only `mt_live_…` keys are accepted (pre-OAuth deployments).
+   */
+  oauth?: OAuthConfig;
   /** Optional fetch override for tests. Threaded into `buildServer`. */
   fetchImpl?: typeof fetch;
   /** Optional logger override (tests use a sink that captures lines). */
@@ -79,7 +87,7 @@ export function createHttpApp(options: CreateHttpAppOptions) {
   app.get(PRM_PATH, (c) =>
     c.json({
       resource: prmResourceFor(options.protectedResourceMetadataUrl),
-      authorization_servers: [],
+      authorization_servers: options.oauth ? [options.oauth.issuer] : [],
       bearer_methods_supported: ["header"],
     }),
   );
@@ -156,9 +164,10 @@ async function handleMcpPost(
     header: (name) => c.req.header(name) ?? null,
     searchParams: new URL(c.req.url).searchParams,
     protectedResourceMetadataUrl: prmUrl,
+    ...(options.oauth !== undefined ? { oauth: options.oauth } : {}),
   };
 
-  const resolution = extractHttpBearer(authCtx);
+  const resolution = await extractHttpBearer(authCtx);
   if (!resolution.ok) {
     finalize(401);
     return unauthorizedResponse(resolution.message, resolution.wwwAuthenticate);
@@ -167,7 +176,7 @@ async function handleMcpPost(
   let upstreamRequestId: string | null = null;
 
   const server = buildServer({
-    apiKey: resolution.apiKey,
+    apiKey: resolution.bearer,
     ...(options.baseUrl !== undefined ? { baseUrl: options.baseUrl } : {}),
     ...(options.fetchImpl !== undefined ? { fetchImpl: options.fetchImpl } : {}),
     onUpstreamResponse: ({ requestId }) => {

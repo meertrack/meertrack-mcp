@@ -10,6 +10,10 @@ coverage/
 .vscode/
 .idea/
 
-# DNS auth keypair for MCP Registry publishing
-*.key.pem
+# DNS auth keypair for MCP Registry publishing & OAuth
+*.pem
 dns-privkey.hex
+
+# Other
+LAUNCHGUIDE.md
+OAUTH_POST_DEPLOY_TODO.md

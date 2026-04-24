@@ -1,6 +1,8 @@
-import { describe, expect, it } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { SignJWT, exportJWK, generateKeyPair, type KeyLike } from "jose";
 import { createHttpApp, HEALTH_PATH, MCP_PATH, PRM_PATH } from "../src/transports/http.js";
 import { Logger } from "../src/logger.js";
+import { __resetJwksCache } from "../src/auth.js";
 import { createMockFetch, jsonResponse } from "./helpers/mockFetch.js";
 
 const PRM_URL = "https://mcp.meertrack.com/.well-known/oauth-protected-resource";
@@ -53,7 +55,7 @@ describe("health", () => {
 });
 
 describe("OAuth Protected Resource Metadata (RFC 9728)", () => {
-  it("serves a valid PRM stub with empty authorization_servers", async () => {
+  it("serves a valid PRM stub with empty authorization_servers (no OAuth configured)", async () => {
     const app = makeApp();
     const res = await app.fetch(new Request(`http://localhost${PRM_PATH}`));
     expect(res.status).toBe(200);
@@ -65,6 +67,23 @@ describe("OAuth Protected Resource Metadata (RFC 9728)", () => {
     expect(body.resource).toMatch(/\/mcp$/);
     expect(body.authorization_servers).toEqual([]);
     expect(body.bearer_methods_supported).toEqual(["header"]);
+  });
+
+  it("advertises the authorization server when OAuth is configured", async () => {
+    const app = createHttpApp({
+      allowedOrigins: ALLOWED_ORIGINS,
+      protectedResourceMetadataUrl: PRM_URL,
+      baseUrl: "https://api.example/v1",
+      logger: silentLogger,
+      oauth: {
+        issuer: "https://meertrack.com",
+        audience: "https://mcp.meertrack.com",
+        jwksUrl: "https://meertrack.com/.well-known/jwks.json",
+      },
+    });
+    const res = await app.fetch(new Request(`http://localhost${PRM_PATH}`));
+    const body = (await res.json()) as { authorization_servers: string[] };
+    expect(body.authorization_servers).toEqual(["https://meertrack.com"]);
   });
 });
 
@@ -358,6 +377,156 @@ describe("Structured request logging", () => {
     expect(lines).toHaveLength(1);
     expect(lines[0]).not.toContain("mt_live_supersecret123");
     expect(lines[0]).toContain("mt_live_***");
+  });
+});
+
+describe("POST /mcp — OAuth JWT bearer", () => {
+  const ISSUER = "https://meertrack.com";
+  const AUDIENCE = "https://mcp.meertrack.com";
+  const JWKS_URL = "https://meertrack.com/.well-known/jwks.json";
+
+  interface TestKeys {
+    privateKey: KeyLike;
+    publicJwk: Record<string, unknown>;
+    kid: string;
+  }
+
+  async function makeKeys(): Promise<TestKeys> {
+    const { privateKey, publicKey } = await generateKeyPair("RS256");
+    const publicJwk = (await exportJWK(publicKey)) as Record<string, unknown>;
+    const kid = "test-key-1";
+    publicJwk["kid"] = kid;
+    publicJwk["alg"] = "RS256";
+    publicJwk["use"] = "sig";
+    return { privateKey, publicJwk, kid };
+  }
+
+  async function mintToken(keys: TestKeys): Promise<string> {
+    return await new SignJWT({ company_id: "comp_xyz" })
+      .setProtectedHeader({ alg: "RS256", kid: keys.kid })
+      .setIssuedAt()
+      .setIssuer(ISSUER)
+      .setAudience(AUDIENCE)
+      .setSubject("user_xyz")
+      .setExpirationTime("10m")
+      .sign(keys.privateKey);
+  }
+
+  let keys: TestKeys;
+  let upstreamMock: ReturnType<typeof createMockFetch>;
+
+  beforeEach(async () => {
+    keys = await makeKeys();
+    __resetJwksCache();
+    upstreamMock = createMockFetch();
+    // Stub global fetch for the jose JWKS call. Upstream API calls go through
+    // `upstreamMock.fetchImpl` which is passed to the app directly, so they
+    // never hit global fetch.
+    vi.stubGlobal("fetch", async (input: unknown) => {
+      const url = typeof input === "string" ? input : (input as URL).toString();
+      if (url === JWKS_URL) {
+        return new Response(JSON.stringify({ keys: [keys.publicJwk] }), {
+          status: 200,
+          headers: { "content-type": "application/json" },
+        });
+      }
+      throw new Error(`unexpected global fetch to ${url}`);
+    });
+  });
+
+  afterEach(() => {
+    vi.unstubAllGlobals();
+    vi.restoreAllMocks();
+  });
+
+  function oauthApp() {
+    return createHttpApp({
+      allowedOrigins: ALLOWED_ORIGINS,
+      protectedResourceMetadataUrl: PRM_URL,
+      baseUrl: "https://api.example/v1",
+      logger: silentLogger,
+      fetchImpl: upstreamMock.fetchImpl,
+      oauth: { issuer: ISSUER, audience: AUDIENCE, jwksUrl: JWKS_URL },
+    });
+  }
+
+  it("accepts a valid JWT and forwards it verbatim to upstream", async () => {
+    upstreamMock.enqueue(
+      jsonResponse({
+        data: {
+          key: {
+            id: "00000000-0000-4000-8000-000000000099",
+            name: null,
+            key_prefix: null,
+            scopes: [],
+            created_at: null,
+            last_used_at: null,
+          },
+          workspace: null,
+        },
+      }),
+    );
+    const token = await mintToken(keys);
+    const res = await oauthApp().fetch(
+      new Request(MCP_URL, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Accept: "application/json, text/event-stream",
+          "MCP-Protocol-Version": "2025-11-25",
+          Authorization: `Bearer ${token}`,
+        },
+        body: JSON.stringify({
+          jsonrpc: "2.0",
+          id: 1,
+          method: "tools/call",
+          params: { name: "whoami", arguments: {} },
+        }),
+      }),
+    );
+    expect(res.status).toBe(200);
+    expect(upstreamMock.calls).toHaveLength(1);
+    const forwardedHeaders =
+      (upstreamMock.calls[0]!.init!.headers as Record<string, string>) ?? {};
+    expect(forwardedHeaders["authorization"]).toBe(`Bearer ${token}`);
+  });
+
+  it("returns 401 with WWW-Authenticate for a token with wrong audience", async () => {
+    const wrongAudience = await new SignJWT({ company_id: "comp_xyz" })
+      .setProtectedHeader({ alg: "RS256", kid: keys.kid })
+      .setIssuedAt()
+      .setIssuer(ISSUER)
+      .setAudience("https://other.example")
+      .setSubject("user_xyz")
+      .setExpirationTime("10m")
+      .sign(keys.privateKey);
+
+    const res = await oauthApp().fetch(
+      new Request(MCP_URL, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Accept: "application/json, text/event-stream",
+          Authorization: `Bearer ${wrongAudience}`,
+        },
+        body: JSON.stringify(initializeBody()),
+      }),
+    );
+    expect(res.status).toBe(401);
+    expect(res.headers.get("WWW-Authenticate")).toContain(`resource_metadata="${PRM_URL}"`);
+    expect(upstreamMock.calls).toHaveLength(0);
+  });
+
+  it("still accepts mt_live_ keys even when OAuth is configured", async () => {
+    const app = oauthApp();
+    const res = await app.fetch(
+      new Request(MCP_URL, {
+        method: "POST",
+        headers: mcpHeaders(),
+        body: JSON.stringify(initializeBody()),
+      }),
+    );
+    expect(res.status).toBe(200);
   });
 });
 

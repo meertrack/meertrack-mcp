@@ -71,10 +71,29 @@ async function startHttp(): Promise<void> {
     );
 
   const baseUrl = process.env["MEERTRACK_API_BASE_URL"];
+
+  // OAuth 2.1 is opt-in via env. Issuer + audience + JWKS URL must all be set
+  // together; partial config is rejected loudly so a misconfigured deploy
+  // doesn't silently accept or reject tokens the wrong way.
+  const oauthIssuer = process.env["MEERTRACK_OAUTH_ISSUER"];
+  const oauthAudience = process.env["MEERTRACK_OAUTH_AUDIENCE"];
+  const oauthJwksUrl = process.env["MEERTRACK_OAUTH_JWKS_URL"];
+  const oauthAny = oauthIssuer ?? oauthAudience ?? oauthJwksUrl;
+  const oauthAll = oauthIssuer && oauthAudience && oauthJwksUrl;
+  if (oauthAny && !oauthAll) {
+    throw new Error(
+      "OAuth env is partially configured. Set all of MEERTRACK_OAUTH_ISSUER, MEERTRACK_OAUTH_AUDIENCE, MEERTRACK_OAUTH_JWKS_URL — or none.",
+    );
+  }
+  const oauth = oauthAll
+    ? { issuer: oauthIssuer, audience: oauthAudience, jwksUrl: oauthJwksUrl }
+    : undefined;
+
   const app = createHttpApp({
     allowedOrigins,
     protectedResourceMetadataUrl: prmUrl,
     ...(baseUrl !== undefined ? { baseUrl } : {}),
+    ...(oauth !== undefined ? { oauth } : {}),
   });
 
   serve({ fetch: app.fetch, port, hostname }, (info) => {
