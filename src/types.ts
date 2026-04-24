@@ -107,44 +107,47 @@ export type ApiErrorBody = z.infer<typeof ApiErrorBody>;
 export const CompetitorSummary = z.object({
   id: z.string().uuid(),
   name: z.string(),
-  website: z.string().url(),
+  website: z.string(),
   category: z.string().nullable(),
   active: z.boolean(),
 });
 export type CompetitorSummary = z.infer<typeof CompetitorSummary>;
 
 export const CompetitorSocial = z.object({
-  linkedin: z.string().url().nullable(),
-  twitter: z.string().url().nullable(),
-  facebook: z.string().url().nullable(),
-  instagram: z.string().url().nullable(),
-  youtube: z.string().url().nullable(),
-  tiktok: z.string().url().nullable(),
+  linkedin: z.string().nullable(),
+  twitter: z.string().nullable(),
+  facebook: z.string().nullable(),
+  instagram: z.string().nullable(),
+  youtube: z.string().nullable(),
+  tiktok: z.string().nullable(),
 });
 export type CompetitorSocial = z.infer<typeof CompetitorSocial>;
 
 export const CompetitorPages = z.object({
-  pricing: z.string().url().nullable(),
-  case_studies: z.string().url().nullable(),
-  blog: z.string().url().nullable(),
-  press: z.string().url().nullable(),
-  release_notes: z.string().url().nullable(),
-  job_listings: z.string().url().nullable(),
-  events: z.string().url().nullable(),
-  shopify: z.string().url().nullable(),
+  pricing: z.string().nullable(),
+  case_studies: z.string().nullable(),
+  blog: z.string().nullable(),
+  press: z.string().nullable(),
+  release_notes: z.string().nullable(),
+  job_listings: z.string().nullable(),
+  events: z.string().nullable(),
+  shopify: z.string().nullable(),
 });
 export type CompetitorPages = z.infer<typeof CompetitorPages>;
 
+// `image_icon`, `created_at`, `social`, `pages` are only returned when the
+// upstream is called with `expand=full`. `expand=compact` omits them, so the
+// shared tool output schema has to accept either shape.
 export const CompetitorDetail = z.object({
   id: z.string().uuid(),
   name: z.string(),
-  website: z.string().url(),
+  website: z.string(),
   category: z.string().nullable(),
-  image_icon: z.string().url().nullable(),
-  created_at: z.string().datetime({ offset: true }),
+  image_icon: z.string().nullable().optional(),
+  created_at: z.string().datetime({ offset: true }).optional(),
   active: z.boolean(),
-  social: CompetitorSocial,
-  pages: CompetitorPages,
+  social: CompetitorSocial.optional(),
+  pages: CompetitorPages.optional(),
 });
 export type CompetitorDetail = z.infer<typeof CompetitorDetail>;
 
@@ -170,10 +173,10 @@ const sectionItemBase = {
 export const BlogPostItem = z.object({
   ...sectionItemBase,
   title: z.string().nullable().optional(),
-  url: z.string().url().nullable().optional(),
+  url: z.string().nullable().optional(),
   description: z.string().nullable().optional(),
   key_points: z.array(z.string()).nullable().optional(),
-  image_url: z.string().url().nullable().optional(),
+  image_url: z.string().nullable().optional(),
   posted_date: z.string().datetime({ offset: true }).nullable().optional(),
 });
 export type BlogPostItem = z.infer<typeof BlogPostItem>;
@@ -184,7 +187,7 @@ export const CaseStudyItem = BlogPostItem;
 export const JobListingItem = z.object({
   ...sectionItemBase,
   title: z.string().nullable().optional(),
-  url: z.string().url().nullable().optional(),
+  url: z.string().nullable().optional(),
   category: z.string().nullable().optional(),
   location: z.string().nullable().optional(),
   posted_date: z.string().datetime({ offset: true }).nullable().optional(),
@@ -205,7 +208,7 @@ export type PricingItem = z.infer<typeof PricingItem>;
 
 export const LinkedInPostItem = z.object({
   ...sectionItemBase,
-  url: z.string().url().nullable().optional(),
+  url: z.string().nullable().optional(),
   content: z.string().nullable().optional(),
   posted_date: z.string().datetime({ offset: true }).nullable().optional(),
 });
@@ -214,7 +217,7 @@ export type LinkedInPostItem = z.infer<typeof LinkedInPostItem>;
 export const YouTubeVideoItem = z.object({
   ...sectionItemBase,
   title: z.string().nullable().optional(),
-  url: z.string().url().nullable().optional(),
+  url: z.string().nullable().optional(),
   description: z.string().nullable().optional(),
   posted_date: z.string().datetime({ offset: true }).nullable().optional(),
 });
@@ -223,9 +226,9 @@ export type YouTubeVideoItem = z.infer<typeof YouTubeVideoItem>;
 export const EventItem = z.object({
   ...sectionItemBase,
   title: z.string().nullable().optional(),
-  url: z.string().url().nullable().optional(),
+  url: z.string().nullable().optional(),
   description: z.string().nullable().optional(),
-  image_url: z.string().url().nullable().optional(),
+  image_url: z.string().nullable().optional(),
   event_type: z.string().nullable().optional(),
   location: z.string().nullable().optional(),
   is_virtual: z.boolean().nullable().optional(),
@@ -257,8 +260,8 @@ export type MetricsClaimedItem = z.infer<typeof MetricsClaimedItem>;
 export const LogoItem = z.object({
   ...sectionItemBase,
   name: z.string().nullable().optional(),
-  logo_url: z.string().url().nullable().optional(),
-  image_url: z.string().url().nullable().optional(),
+  logo_url: z.string().nullable().optional(),
+  image_url: z.string().nullable().optional(),
   is_live: z.boolean().nullable().optional(),
   added_at: z.string().datetime({ offset: true }).nullable().optional(),
   removed_at: z.string().datetime({ offset: true }).nullable().optional(),
@@ -267,7 +270,7 @@ export type LogoItem = z.infer<typeof LogoItem>;
 
 export const SitemapUrlItem = z.object({
   ...sectionItemBase,
-  url: z.string().url().nullable().optional(),
+  url: z.string().nullable().optional(),
 });
 export type SitemapUrlItem = z.infer<typeof SitemapUrlItem>;
 
@@ -312,9 +315,9 @@ export const CompetitorOverviewResponse = z.object({
   data: z.object({
     id: z.string().uuid(),
     name: z.string(),
-    website: z.string().url(),
+    website: z.string(),
     category: z.string().nullable(),
-    image_icon: z.string().url().nullable(),
+    image_icon: z.string().nullable(),
     created_at: z.string().datetime({ offset: true }),
     social: CompetitorSocial,
     pages: CompetitorPages,
