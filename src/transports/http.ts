@@ -71,9 +71,15 @@ export function createHttpApp(options: CreateHttpAppOptions) {
   // Origin allowlist — runs before routing so it protects every path. The SDK
   // also has deprecated built-in origin validation; we enforce it at the
   // transport edge per the spec's current guidance.
+  //
+  // Loopback (`http://localhost:*`, `http://127.0.0.1:*`) is always allowed:
+  // this endpoint authenticates via Bearer tokens (not cookies), so DNS
+  // rebinding / cross-site cookie theft isn't the threat model, and MCP
+  // dev tools like the Inspector connect from a loopback origin on a
+  // user-chosen port.
   app.use("*", async (c, next) => {
     const origin = c.req.header("origin");
-    if (origin && !options.allowedOrigins.includes(origin)) {
+    if (origin && !isLoopbackOrigin(origin) && !options.allowedOrigins.includes(origin)) {
       return c.json(
         { error: { code: "forbidden_origin", message: `Origin not allowed: ${origin}` } },
         403,
@@ -271,6 +277,18 @@ function unauthorizedResponse(message: string, wwwAuthenticate: string): Respons
  */
 export function defaultProtectedResourceMetadataUrl(host: string, protocol: "http" | "https" = "https"): string {
   return `${protocol}://${host}${PRM_PATH}`;
+}
+
+function isLoopbackOrigin(origin: string): boolean {
+  try {
+    const parsed = new URL(origin);
+    return (
+      parsed.protocol === "http:" &&
+      (parsed.hostname === "localhost" || parsed.hostname === "127.0.0.1")
+    );
+  } catch {
+    return false;
+  }
 }
 
 export { buildWwwAuthenticateHeader };
