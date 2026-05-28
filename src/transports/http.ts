@@ -94,7 +94,13 @@ export function createHttpApp(options: CreateHttpAppOptions) {
     c.json({
       resource: prmResourceFor(options.protectedResourceMetadataUrl),
       authorization_servers: options.oauth ? [options.oauth.issuer] : [],
+      scopes_supported: ["read"],
       bearer_methods_supported: ["header"],
+      ...(options.oauth ? { jwks_uri: options.oauth.jwksUrl } : {}),
+      resource_name: "Meertrack MCP",
+      ...(options.oauth
+        ? { resource_documentation: `${options.oauth.issuer.replace(/\/$/, "")}/developers/api` }
+        : {}),
     }),
   );
 
@@ -124,12 +130,12 @@ export function createHttpApp(options: CreateHttpAppOptions) {
 }
 
 function prmResourceFor(prmUrl: string): string {
-  // The `resource` in PRM is the MCP endpoint, not the PRM doc URL itself.
-  // Derive it from the PRM URL by replacing the well-known suffix with `/mcp`.
+  // The `resource` is the resource identifier bound to the JWT `aud` claim
+  // (RFC 8707) — the canonical origin of the MCP server, not a specific
+  // endpoint path. Derive it by stripping the PRM URL down to scheme + host.
   try {
     const u = new URL(prmUrl);
-    u.pathname = MCP_PATH;
-    return u.toString();
+    return `${u.protocol}//${u.host}`;
   } catch {
     return prmUrl;
   }

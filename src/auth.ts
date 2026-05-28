@@ -155,16 +155,18 @@ export async function extractHttpBearer(
 
   const candidate = fromHeader ?? (fromQuery ? fromQuery.trim() : null);
   const source: "header" | "query" = fromHeader ? "header" : "query";
-  const wwwAuthenticate = buildWwwAuthenticateHeader(ctx.protectedResourceMetadataUrl);
 
   if (!candidate) {
+    // RFC 6750: no `error` param when the request lacks credentials entirely.
+    // Clients read this as "prompt the user to authenticate" rather than
+    // attempting a silent token refresh.
     return {
       ok: false,
       status: 401,
       code: "unauthorized",
       message:
         "Missing credentials. Send `Authorization: Bearer <mt_live_… or OAuth access token>` (preferred) or `?api_key=mt_live_…` as a query-string fallback.",
-      wwwAuthenticate,
+      wwwAuthenticate: buildWwwAuthenticateHeader(ctx.protectedResourceMetadataUrl),
     };
   }
 
@@ -177,13 +179,17 @@ export async function extractHttpBearer(
   // treat unknown-prefix bearers as invalid so pre-OAuth deployments don't
   // silently accept garbage.
   if (!ctx.oauth) {
+    const message =
+      "API key does not start with `mt_live_`. Only production keys are supported — mint one at Settings → API Keys.";
     return {
       ok: false,
       status: 401,
       code: "unauthorized",
-      message:
-        "API key does not start with `mt_live_`. Only production keys are supported — mint one at Settings → API Keys.",
-      wwwAuthenticate,
+      message,
+      wwwAuthenticate: buildWwwAuthenticateHeader(ctx.protectedResourceMetadataUrl, {
+        error: "invalid_token",
+        description: message,
+      }),
     };
   }
 
@@ -194,7 +200,10 @@ export async function extractHttpBearer(
       status: 401,
       code: "unauthorized",
       message: verification.message,
-      wwwAuthenticate,
+      wwwAuthenticate: buildWwwAuthenticateHeader(ctx.protectedResourceMetadataUrl, {
+        error: "invalid_token",
+        description: verification.message,
+      }),
     };
   }
 
@@ -220,9 +229,24 @@ export function parseBearerHeader(value: string): string | null {
  * MUST advertise where the client can find Protected Resource Metadata.
  * Clients use this to discover the authorization server(s) and initiate the
  * OAuth 2.1 flow.
+ *
+ * Optional `reason` adds RFC 6750 §3 `error` + `error_description` params so
+ * clients can tell "no token sent" (omit reason → prompt user) apart from
+ * "token rejected" (`error="invalid_token"` → silently refresh).
  */
-export function buildWwwAuthenticateHeader(protectedResourceMetadataUrl: string): string {
-  return `Bearer realm="meertrack", resource_metadata="${protectedResourceMetadataUrl}"`;
+export function buildWwwAuthenticateHeader(
+  protectedResourceMetadataUrl: string,
+  reason?: { error: "invalid_token" | "insufficient_scope"; description: string },
+): string {
+  const base = `Bearer realm="meertrack", resource_metadata="${protectedResourceMetadataUrl}"`;
+  if (!reason) return base;
+  // HTTP header values are ByteStrings (≤ U+00FF). RFC 6750 §3 also restricts
+  // error_description to ASCII printable. Strip anything outside U+0020-U+007E
+  // before escaping — the friendly Unicode version stays in the JSON body.
+  const ascii = reason.description.replace(/[^\x20-\x7E]/g, "");
+  // RFC 7235 quoted-string: escape backslashes first, then double quotes.
+  const escaped = ascii.replace(/\\/g, "\\\\").replace(/"/g, '\\"');
+  return `${base}, error="${reason.error}", error_description="${escaped}"`;
 }
 
 /**

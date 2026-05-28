@@ -59,17 +59,20 @@ describe("OAuth Protected Resource Metadata (RFC 9728)", () => {
     const app = makeApp();
     const res = await app.fetch(new Request(`http://localhost${PRM_PATH}`));
     expect(res.status).toBe(200);
-    const body = (await res.json()) as {
-      resource: string;
-      authorization_servers: string[];
-      bearer_methods_supported: string[];
-    };
-    expect(body.resource).toMatch(/\/mcp$/);
-    expect(body.authorization_servers).toEqual([]);
-    expect(body.bearer_methods_supported).toEqual(["header"]);
+    const body = (await res.json()) as Record<string, unknown>;
+    // `resource` is the bare-origin resource identifier (RFC 8707) — must
+    // match the JWT `aud` the AS mints, not a specific endpoint path.
+    expect(body["resource"]).toBe("https://mcp.meertrack.com");
+    expect(body["authorization_servers"]).toEqual([]);
+    expect(body["scopes_supported"]).toEqual(["read"]);
+    expect(body["bearer_methods_supported"]).toEqual(["header"]);
+    expect(body["resource_name"]).toBe("Meertrack MCP");
+    // OAuth-only fields are absent when OAuth isn't configured.
+    expect(body).not.toHaveProperty("jwks_uri");
+    expect(body).not.toHaveProperty("resource_documentation");
   });
 
-  it("advertises the authorization server when OAuth is configured", async () => {
+  it("advertises the authorization server + jwks_uri + resource_documentation when OAuth is configured", async () => {
     const app = createHttpApp({
       allowedOrigins: ALLOWED_ORIGINS,
       protectedResourceMetadataUrl: PRM_URL,
@@ -82,8 +85,13 @@ describe("OAuth Protected Resource Metadata (RFC 9728)", () => {
       },
     });
     const res = await app.fetch(new Request(`http://localhost${PRM_PATH}`));
-    const body = (await res.json()) as { authorization_servers: string[] };
-    expect(body.authorization_servers).toEqual(["https://meertrack.com"]);
+    const body = (await res.json()) as Record<string, unknown>;
+    expect(body["resource"]).toBe("https://mcp.meertrack.com");
+    expect(body["authorization_servers"]).toEqual(["https://meertrack.com"]);
+    expect(body["scopes_supported"]).toEqual(["read"]);
+    expect(body["jwks_uri"]).toBe("https://meertrack.com/.well-known/jwks.json");
+    expect(body["resource_name"]).toBe("Meertrack MCP");
+    expect(body["resource_documentation"]).toBe("https://meertrack.com/developers/api");
   });
 });
 
@@ -513,7 +521,10 @@ describe("POST /mcp — OAuth JWT bearer", () => {
       }),
     );
     expect(res.status).toBe(401);
-    expect(res.headers.get("WWW-Authenticate")).toContain(`resource_metadata="${PRM_URL}"`);
+    const www = res.headers.get("WWW-Authenticate");
+    expect(www).toContain(`resource_metadata="${PRM_URL}"`);
+    // A bearer was sent but failed verification → tag as invalid_token.
+    expect(www).toContain('error="invalid_token"');
     expect(upstreamMock.calls).toHaveLength(0);
   });
 

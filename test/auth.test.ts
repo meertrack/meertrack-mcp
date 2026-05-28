@@ -137,6 +137,9 @@ describe("extractHttpBearer", () => {
       expect(res.code).toBe("unauthorized");
       expect(res.wwwAuthenticate).toContain(`resource_metadata="${PRM_URL}"`);
       expect(res.wwwAuthenticate).toContain('realm="meertrack"');
+      // No credentials → omit `error=` so clients prompt the user instead of
+      // attempting a silent refresh (RFC 6750 §3).
+      expect(res.wwwAuthenticate).not.toContain("error=");
     }
   });
 
@@ -146,6 +149,10 @@ describe("extractHttpBearer", () => {
     if (!res.ok) {
       expect(res.code).toBe("unauthorized");
       expect(res.wwwAuthenticate).toContain("Bearer realm=");
+      // A bearer was sent but rejected → tag as invalid_token so clients can
+      // distinguish from the no-credentials case.
+      expect(res.wwwAuthenticate).toContain('error="invalid_token"');
+      expect(res.wwwAuthenticate).toContain("error_description=");
     }
   });
 
@@ -171,6 +178,35 @@ describe("buildWwwAuthenticateHeader", () => {
     expect(value).toBe(
       'Bearer realm="meertrack", resource_metadata="https://x.example/.well-known/oauth-protected-resource"',
     );
+  });
+
+  it("appends error + error_description when a reason is supplied (RFC 6750 §3)", () => {
+    const value = buildWwwAuthenticateHeader(
+      "https://x.example/.well-known/oauth-protected-resource",
+      { error: "invalid_token", description: "Access token has expired." },
+    );
+    expect(value).toBe(
+      'Bearer realm="meertrack", resource_metadata="https://x.example/.well-known/oauth-protected-resource", error="invalid_token", error_description="Access token has expired."',
+    );
+  });
+
+  it("escapes embedded backslashes and double quotes in error_description", () => {
+    const value = buildWwwAuthenticateHeader(
+      "https://x.example/.well-known/oauth-protected-resource",
+      { error: "invalid_token", description: 'broke at C:\\path "x"' },
+    );
+    expect(value).toContain(String.raw`error_description="broke at C:\\path \"x\""`);
+  });
+
+  it("strips non-ASCII characters from error_description (HTTP ByteString constraint)", () => {
+    const value = buildWwwAuthenticateHeader(
+      "https://x.example/.well-known/oauth-protected-resource",
+      { error: "invalid_token", description: "missing key — see Settings → API Keys" },
+    );
+    // Em-dash + right-arrow stripped; rest preserved. Result must be a valid
+    // HTTP header value (no characters > 0xFF, otherwise `new Response` throws).
+    expect(value).toContain('error_description="missing key  see Settings  API Keys"');
+    expect(() => new Response("ok", { headers: { "WWW-Authenticate": value } })).not.toThrow();
   });
 });
 
