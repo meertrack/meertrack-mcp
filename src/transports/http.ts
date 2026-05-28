@@ -230,7 +230,12 @@ async function handleMcpPost(
   } catch (err) {
     await server.close().catch(() => {});
     const message = err instanceof Error ? err.message : String(err);
-    finalize(500, { error: message, ...(upstreamRequestId ? { meertrack_request_id: upstreamRequestId } : {}) });
+    const stack = err instanceof Error && err.stack ? redactStack(err.stack) : undefined;
+    finalize(500, {
+      error: message,
+      ...(stack ? { stack } : {}),
+      ...(upstreamRequestId ? { meertrack_request_id: upstreamRequestId } : {}),
+    });
     return new Response(
       JSON.stringify({
         jsonrpc: "2.0",
@@ -240,6 +245,13 @@ async function handleMcpPost(
       { status: 500, headers: { "Content-Type": "application/json" } },
     );
   }
+}
+
+/** Drop anything that looks like a bearer/api key from a stack trace before logging. */
+function redactStack(stack: string): string {
+  return stack
+    .replace(/Bearer\s+[A-Za-z0-9._-]+/gi, "Bearer ***")
+    .replace(/(api[_-]?key["'=:\s]+)[A-Za-z0-9._-]+/gi, "$1***");
 }
 
 /**

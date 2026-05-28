@@ -16,6 +16,10 @@ import { VERSION } from "./version.js";
 
 export const DEFAULT_BASE_URL = "https://api.meertrack.com/v1";
 
+/** Per-request upstream timeout. Fly's platform default kicks in around 60s; we want a
+ * faster, structured failure so the agent gets `transport_error` instead of a hang. */
+const UPSTREAM_TIMEOUT_MS = 15_000;
+
 /** Resolve the upstream base URL, honoring `MEERTRACK_API_BASE_URL` for staging/local. */
 export function resolveBaseUrl(override?: string): string {
   const raw = override ?? process.env["MEERTRACK_API_BASE_URL"] ?? DEFAULT_BASE_URL;
@@ -195,13 +199,20 @@ export class MeertrackClient {
           accept: "application/json",
           "user-agent": this.userAgent,
         },
+        // Bound upstream waits so a hung Meertrack API surfaces as a clean
+        // transport error instead of riding the platform's connection timeout.
+        signal: AbortSignal.timeout(UPSTREAM_TIMEOUT_MS),
       });
     } catch (cause) {
+      const isTimeout =
+        cause instanceof Error &&
+        (cause.name === "TimeoutError" || cause.name === "AbortError");
       throw new MeertrackApiError({
         status: 0,
         code: "transport_error",
-        message:
-          cause instanceof Error
+        message: isTimeout
+          ? `Meertrack upstream timed out after ${UPSTREAM_TIMEOUT_MS} ms`
+          : cause instanceof Error
             ? `Network error calling Meertrack: ${cause.message}`
             : "Network error calling Meertrack",
       });

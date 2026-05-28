@@ -102,3 +102,19 @@ Tool schemas are part of the public API contract; agents cache them. So:
 - `WWW-Authenticate` + RFC 9728 Protected Resource Metadata stub on 401s.
 - Origin allowlist (DNS rebinding protection) on the HTTP transport.
 - Single-line JSON request logs with bearer redaction.
+
+## [1.1.1] - 2026-05-28
+
+### Changed
+
+- `get_competitor` description now reflects current per-section caps and
+  points at `list_activities` for paginated drill-down.
+
+### Fixed
+
+- 15s upstream timeout in the HTTP client. A hung Meertrack API now
+  surfaces as a clean `transport_error` instead of riding the Fly
+  platform's ~60s connection timeout.
+- HTTP transport `500` responses include a redacted stack trace
+  (bearer tokens and api keys stripped) to make production triage
+  possible without leaking credentials.
