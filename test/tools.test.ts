@@ -92,6 +92,8 @@ const COMPETITOR_OVERVIEW_BODY = {
       "metrics-claimed": [],
       logos: [],
       "linkedin-posts": [],
+      "x-posts": [],
+      reviews: [],
       "youtube-videos": [],
       events: [],
     },
@@ -160,6 +162,11 @@ function expectToolSuccess(result: Awaited<ReturnType<typeof pair.client.callToo
   expect(result.isError).not.toBe(true);
   expect(Array.isArray(result.content)).toBe(true);
   expect(result.structuredContent).toBeDefined();
+}
+
+/** First text block of a tool result. `content` is typed `unknown` by the SDK. */
+function firstText(result: Awaited<ReturnType<typeof pair.client.callTool>>): string | undefined {
+  return (result.content as Array<{ text?: string }>)[0]?.text;
 }
 
 // ─── tools/list ───────────────────────────────────────────────────────────
@@ -308,7 +315,7 @@ describe("list_activities", () => {
     const result = await pair.client.callTool({ name: "list_activities", arguments: {} });
     expect(result.isError).toBe(true);
     expect(result).not.toHaveProperty("structuredContent");
-    const text = (result.content[0] as { text: string }).text;
+    const text = firstText(result);
     expect(text).toContain("reset=1745418120");
     expect(text).toContain("2025-04-23T14:22:00.000Z");
   });
@@ -332,7 +339,7 @@ describe("get_activity_item", () => {
       arguments: { row_uuid: ACTIVITY_ID },
     });
     expect(result.isError).toBe(true);
-    expect((result.content[0] as { text: string }).text).toBe("No such row in this workspace.");
+    expect(firstText(result)).toBe("No such row in this workspace.");
   });
 });
 
@@ -387,7 +394,7 @@ describe("tool-layer error mapping", () => {
     fetchMock.enqueue(errorResponse(401, "unauthorized", "Missing or invalid API key"));
     const result = await pair.client.callTool({ name: "whoami", arguments: {} });
     expect(result.isError).toBe(true);
-    expect((result.content[0] as { text: string }).text).toContain(
+    expect(firstText(result)).toContain(
       "Invalid or revoked Meertrack API key",
     );
   });
@@ -401,14 +408,14 @@ describe("tool-layer error mapping", () => {
       arguments: { id: COMPETITOR_ID },
     });
     expect(result.isError).toBe(true);
-    expect((result.content[0] as { text: string }).text).toContain('Competitor "Acme" is deactivated');
+    expect(firstText(result)).toContain('Competitor "Acme" is deactivated');
   });
 
   it("5xx returns the retry-safe text", async () => {
     fetchMock.enqueue(errorResponse(500, "internal_error", "boom"));
     const result = await pair.client.callTool({ name: "whoami", arguments: {} });
     expect(result.isError).toBe(true);
-    expect((result.content[0] as { text: string }).text).toBe("Upstream error; safe to retry.");
+    expect(firstText(result)).toBe("Upstream error; safe to retry.");
   });
 });
 

@@ -9,6 +9,8 @@ export const SECTION_SLUGS = [
   "pricing",
   "case-studies",
   "linkedin-posts",
+  "x-posts",
+  "reviews",
   "youtube-videos",
   "events",
   "messaging",
@@ -280,6 +282,38 @@ export const SitemapUrlItem = z.object({
 });
 export type SitemapUrlItem = z.infer<typeof SitemapUrlItem>;
 
+export const XPostItem = z.object({
+  ...sectionItemBase,
+  post_id: z.string().nullable().optional(),
+  url: z.string().nullable().optional(),
+  content: z.string().nullable().optional(),
+  // Author/account display name (typically the competitor's handle).
+  name: z.string().nullable().optional(),
+  // URL shared inside the post body, if any. Not emitted on every row.
+  external_url: z.string().nullable().optional(),
+  posted_date: z.string().datetime({ offset: true }).nullable().optional(),
+});
+export type XPostItem = z.infer<typeof XPostItem>;
+
+export const ReviewItem = z.object({
+  ...sectionItemBase,
+  title: z.string().nullable().optional(),
+  // Free-form rating text as returned by the source (e.g. `"4/5"`, `"5"`) —
+  // not a number.
+  rating: z.string().nullable().optional(),
+  sentiment: z.string().nullable().optional(),
+  url: z.string().nullable().optional(),
+  excerpt: z.string().nullable().optional(),
+  // Review platform (e.g. `"G2"`, `"Trustpilot"`). Present when known.
+  source: z.string().nullable().optional(),
+  // Reviewer display name (or `"Anonymous"`).
+  name: z.string().nullable().optional(),
+  // Platform's native review id.
+  external_id: z.string().nullable().optional(),
+  posted_date: z.string().datetime({ offset: true }).nullable().optional(),
+});
+export type ReviewItem = z.infer<typeof ReviewItem>;
+
 /**
  * Union of every section item shape. The active branch is selected by the
  * envelope's `section` value — not by inspecting properties (several branches
@@ -297,6 +331,8 @@ export const SectionItem = z.union([
   MetricsClaimedItem,
   LogoItem,
   SitemapUrlItem,
+  XPostItem,
+  ReviewItem,
 ]);
 export type SectionItem = z.infer<typeof SectionItem>;
 
@@ -312,6 +348,8 @@ export const CompetitorOverviewItems = z.object({
   "metrics-claimed": z.array(MetricsClaimedItem),
   logos: z.array(LogoItem),
   "linkedin-posts": z.array(LinkedInPostItem),
+  "x-posts": z.array(XPostItem),
+  reviews: z.array(ReviewItem),
   "youtube-videos": z.array(YouTubeVideoItem),
   events: z.array(EventItem),
 });
@@ -466,6 +504,8 @@ export type Workspace = z.infer<typeof Workspace>;
 
 export const MeResponse = z.object({
   data: z.object({
+    auth_type: z.enum(["api_key", "oauth"]).optional(),
+    subject: z.string().optional(),
     key: ApiKey.nullable(),
     workspace: Workspace.nullable(),
   }),

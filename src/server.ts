@@ -22,6 +22,7 @@ export interface BuildServerOptions {
 }
 
 export const SERVER_NAME = "meertrack";
+export const SERVER_TITLE = "Meertrack";
 
 /**
  * Build a ready-to-connect `McpServer` for one bearer.
@@ -50,6 +51,7 @@ export function buildServer(opts: BuildServerOptions): McpServer {
   const server = new McpServer(
     {
       name: SERVER_NAME,
+      title: SERVER_TITLE,
       version: VERSION,
     },
     {

@@ -15,6 +15,34 @@ Tool schemas are part of the public API contract; agents cache them. So:
 
 ## [Unreleased]
 
+### Fixed
+
+- **Section drift: `x-posts` and `reviews` are now recognized.** The upstream
+  API serves these two section types, but the connector's `SECTION_SLUGS`
+  enum had only 12 values, so every X-post / review row failed output
+  validation (`-32602`) on `list_activities` and `get_activity_item`, and was
+  silently dropped from the `get_competitor` overview. Added both slugs (→ 14),
+  new `XPostItem` / `ReviewItem` output schemas, the matching `x-posts` /
+  `reviews` overview buckets, and union branches so payload fields
+  (`post_id`, `rating`, …) round-trip. Schema changes are additive (new enum
+  values + new optional fields), so this is backward-compatible.
+
+## [1.1.1] - 2026-05-28
+
+### Changed
+
+- `get_competitor` description now reflects current per-section caps and
+  points at `list_activities` for paginated drill-down.
+
+### Fixed
+
+- 15s upstream timeout in the HTTP client. A hung Meertrack API now
+  surfaces as a clean `transport_error` instead of riding the Fly
+  platform's ~60s connection timeout.
+- HTTP transport `500` responses include a redacted stack trace
+  (bearer tokens and api keys stripped) to make production triage
+  possible without leaking credentials.
+
 ## [1.1.0] - 2026-04-24
 
 ### Added
@@ -102,19 +130,3 @@ Tool schemas are part of the public API contract; agents cache them. So:
 - `WWW-Authenticate` + RFC 9728 Protected Resource Metadata stub on 401s.
 - Origin allowlist (DNS rebinding protection) on the HTTP transport.
 - Single-line JSON request logs with bearer redaction.
-
-## [1.1.1] - 2026-05-28
-
-### Changed
-
-- `get_competitor` description now reflects current per-section caps and
-  points at `list_activities` for paginated drill-down.
-
-### Fixed
-
-- 15s upstream timeout in the HTTP client. A hung Meertrack API now
-  surfaces as a clean `transport_error` instead of riding the Fly
-  platform's ~60s connection timeout.
-- HTTP transport `500` responses include a redacted stack trace
-  (bearer tokens and api keys stripped) to make production triage
-  possible without leaking credentials.

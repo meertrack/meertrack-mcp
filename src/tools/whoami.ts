@@ -6,7 +6,7 @@ import { toToolError } from "../errors.js";
 export const WHOAMI_NAME = "whoami";
 
 export const WHOAMI_DESCRIPTION = [
-  "Wraps `GET /me`. Confirms which workspace and API key the agent is authenticated as and returns the current subscription, competitor budget, and rate-limit snapshot.",
+  "Wraps `GET /me`. Confirms which workspace the agent is authenticated as and returns the current subscription, competitor budget, and rate-limit snapshot. `auth_type` reports how you authenticated: `api_key` callers also get the `key` block; `oauth` callers have no API-key record, so `key` is null — use `auth_type`/`subject` to confirm identity.",
   "",
   "Chaining: Call first in a session to verify auth and workspace identity before any other tool.",
   "Errors: `unauthorized` (key is invalid or revoked — mint a new one), `rate_limited` (retry after `X-RateLimit-Reset`).",

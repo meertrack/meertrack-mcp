@@ -22,8 +22,10 @@ import {
 // zod schema should be updated here at the same time.
 
 describe("enum constants", () => {
-  it("exports 12 section slugs and 3 change types", () => {
-    expect(SECTION_SLUGS).toHaveLength(12);
+  it("exports 14 section slugs and 3 change types", () => {
+    expect(SECTION_SLUGS).toHaveLength(14);
+    expect(SECTION_SLUGS).toContain("x-posts");
+    expect(SECTION_SLUGS).toContain("reviews");
     expect(CHANGE_TYPES).toEqual(["added", "updated", "removed"]);
   });
 
@@ -160,12 +162,12 @@ describe("CompetitorListResponse", () => {
         },
       ],
     });
-    expect(parsed.data[0]?.social.linkedin).toContain("linkedin.com");
+    expect(parsed.data[0]?.social?.linkedin).toContain("linkedin.com");
   });
 });
 
 describe("CompetitorOverviewResponse", () => {
-  it("parses the overview example with all 11 section buckets", () => {
+  it("parses the overview example with all 13 section buckets", () => {
     const parsed = CompetitorOverviewResponse.parse({
       data: {
         id: "5b2e21a4-9d4a-4f1b-8e75-2f5a1c11de01",
@@ -241,6 +243,33 @@ describe("CompetitorOverviewResponse", () => {
           "metrics-claimed": [],
           logos: [],
           "linkedin-posts": [],
+          "x-posts": [
+            {
+              competitor: "Decagon",
+              tags: [],
+              discovered_at: "2026-06-03T18:11:31.699472+00:00",
+              initial_run: false,
+              post_id: "2062197458961358904",
+              url: "https://x.com/DecagonAI/status/2062197458961358904",
+              content: null,
+              name: "Decagon",
+              posted_date: "2026-06-03T15:39:22+00:00",
+            },
+          ],
+          reviews: [
+            {
+              competitor: "Xactly",
+              tags: [],
+              discovered_at: "2026-05-15T09:04:37.606246+00:00",
+              initial_run: false,
+              title: "Responsive Support and Strong Roadmap",
+              rating: "4/5",
+              sentiment: null,
+              url: "https://www.g2.com/products/xactly/reviews/xactly-review-12801895",
+              excerpt: "They have many years of expertise and a great product roadmap.",
+              posted_date: "2026-05-12T12:00:00+00:00",
+            },
+          ],
           "youtube-videos": [],
           events: [],
         },
@@ -248,6 +277,8 @@ describe("CompetitorOverviewResponse", () => {
     });
     expect(parsed.data.items["blog-posts"]).toHaveLength(1);
     expect(parsed.data.items["job-listings"][0]?.title).toBe("Senior Backend Engineer");
+    expect(parsed.data.items["x-posts"][0]?.post_id).toBe("2062197458961358904");
+    expect(parsed.data.items["reviews"][0]?.rating).toBe("4/5");
   });
 });
 
@@ -301,6 +332,49 @@ describe("ActivityListResponse", () => {
             removed_at: "2026-04-18T22:00:00Z",
           },
         },
+        {
+          id: "c6ef1db6-1c48-4742-ac86-b21cdd5ecb6b",
+          section: "x-posts",
+          change_type: "added",
+          change_date: "2026-06-03T15:39:22.000Z",
+          competitor: {
+            id: "d1c87f44-f7b9-45a7-bc4e-180120464b4c",
+            name: "Decagon",
+          },
+          data: {
+            competitor: "Decagon",
+            post_id: "2062197458961358904",
+            url: "https://x.com/DecagonAI/status/2062197458961358904",
+            content: null,
+            name: "Decagon",
+            tags: [],
+            posted_date: "2026-06-03T15:39:22+00:00",
+            discovered_at: "2026-06-03T18:11:31.699472+00:00",
+            initial_run: false,
+          },
+        },
+        {
+          id: "eea6d6d9-abf4-4f26-804f-6c06f73bcc12",
+          section: "reviews",
+          change_type: "added",
+          change_date: "2026-05-12T12:00:00.000Z",
+          competitor: {
+            id: "acdda72d-b4d5-4129-8f72-f99846744015",
+            name: "Xactly",
+          },
+          data: {
+            competitor: "Xactly",
+            title: "Responsive Support and Strong Roadmap",
+            rating: "4/5",
+            sentiment: null,
+            url: "https://www.g2.com/products/xactly/reviews/xactly-review-12801895",
+            excerpt: "They have many years of expertise and a great product roadmap.",
+            tags: [],
+            posted_date: "2026-05-12T12:00:00+00:00",
+            discovered_at: "2026-05-15T09:04:37.606246+00:00",
+            initial_run: false,
+          },
+        },
       ],
       pagination: {
         next_cursor: "MjAyNi0wNC0xOFQyMjowMDowMHwwMS0xMS0wMDAw",
@@ -308,8 +382,10 @@ describe("ActivityListResponse", () => {
         total: 247,
       },
     });
-    expect(parsed.data).toHaveLength(2);
+    expect(parsed.data).toHaveLength(4);
     expect(parsed.pagination.total).toBe(247);
+    expect(parsed.data[2]?.section).toBe("x-posts");
+    expect(parsed.data[3]?.section).toBe("reviews");
   });
 });
 
