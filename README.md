@@ -9,7 +9,7 @@ Model Context Protocol server for [Meertrack](https://meertrack.com). Ask your
 agent "what did my competitors ship this week?" from Claude, Cursor, Claude
 Code, VS Code, Windsurf, Cline, ChatGPT, or anywhere that speaks MCP.
 
-Wraps the [Meertrack v1 REST API](https://api.meertrack.com/v1) as **8
+Wraps the [Meertrack v1 REST API](https://meertrack.com/developers/api) as **8
 read-only tools** and **3 prompt workflows**. No backend changes, same
 `mt_live_` keys, same rate limits.
 
