@@ -331,10 +331,14 @@ export const AdItem = z.object({
 export type AdItem = z.infer<typeof AdItem>;
 
 /**
- * Union of every section item shape. The active branch is selected by the
- * envelope's `section` value — not by inspecting properties (several branches
- * overlap on `title`/`url`/`posted_date`). Treated as a permissive union so
- * consumers can round-trip without a discriminator.
+ * Union of every section item shape, kept for documentation/reference of the per-section
+ * fields. The active branch is selected by the envelope's `section` value.
+ *
+ * NOTE: do NOT use this union to validate a wire `data`/`payload`. Several branches overlap
+ * on `title`/`url`/`posted_date`, and the MCP SDK re-parses tool output against the declared
+ * output schema and returns the PARSED value — so a non-discriminated union resolves to its
+ * first matching branch and silently strips every field not on that branch (e.g. a pricing or
+ * job row loses `is_live`/`category`/`location`). Use `SectionItemData` for the wire shape.
  */
 export const SectionItem = z.union([
   BlogPostItem,
@@ -352,6 +356,14 @@ export const SectionItem = z.union([
   AdItem,
 ]);
 export type SectionItem = z.infer<typeof SectionItem>;
+
+/**
+ * Lossless wire shape for a section row. A plain record of arbitrary keys, so every field the
+ * API returns survives the SDK's output re-parse (see the note on SectionItem). The per-section
+ * fields are documented by the union branches above.
+ */
+export const SectionItemData = z.record(z.string(), z.unknown());
+export type SectionItemData = z.infer<typeof SectionItemData>;
 
 // ─── Competitor overview (GET /competitors/{id}) ──────────────────────────
 
@@ -402,7 +414,7 @@ export const ActivityItem = z.object({
   change_type: ChangeType,
   change_date: z.string().datetime({ offset: true }),
   competitor: CompetitorRef,
-  data: SectionItem,
+  data: SectionItemData,
 });
 export type ActivityItem = z.infer<typeof ActivityItem>;
 
@@ -412,15 +424,25 @@ export const ActivityListResponse = z.object({
 });
 export type ActivityListResponse = z.infer<typeof ActivityListResponse>;
 
+export const ActivityDetailItem = z.object({
+  id: z.string().uuid(),
+  section: SectionSlug,
+  competitor: CompetitorRef,
+  payload: SectionItemData,
+});
+export type ActivityDetailItem = z.infer<typeof ActivityDetailItem>;
+
 export const ActivityDetailResponse = z.object({
-  data: z.object({
-    id: z.string().uuid(),
-    section: SectionSlug,
-    competitor: CompetitorRef,
-    payload: SectionItem,
-  }),
+  data: ActivityDetailItem,
 });
 export type ActivityDetailResponse = z.infer<typeof ActivityDetailResponse>;
+
+export const ActivityItemsResponse = z.object({
+  data: z.array(ActivityDetailItem),
+  // Requested ids that did not resolve (unknown, cross-workspace, inactive, or malformed).
+  not_found: z.array(z.string().uuid()),
+});
+export type ActivityItemsResponse = z.infer<typeof ActivityItemsResponse>;
 
 // ─── Digests ──────────────────────────────────────────────────────────────
 

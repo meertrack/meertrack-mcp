@@ -112,6 +112,17 @@ describe("MeertrackClient — request wiring", () => {
     );
   });
 
+  it("getActivityItems comma-joins ids into the `id` query param", async () => {
+    const { fetchImpl, calls } = mockFetch(jsonResponse({ data: [], not_found: [] }));
+    const client = new MeertrackClient({
+      baseUrl: "https://api.example/v1",
+      apiKey: "mt_live_abc",
+      fetchImpl,
+    });
+    await client.getActivityItems(["AAA", "BBB"]);
+    expect(calls[0]!.url).toBe("https://api.example/v1/activity/items?id=AAA%2CBBB");
+  });
+
   it("encodes activity filters (competitor_id/section/change_type/from/to/limit/cursor)", async () => {
     const { fetchImpl, calls } = mockFetch(
       jsonResponse({ data: [], pagination: { next_cursor: null, has_more: false, total: 0 } }),

@@ -13,6 +13,28 @@ Tool schemas are part of the public API contract; agents cache them. So:
 - **PATCH**: bug fixes, description improvements, internal refactors with
   no schema impact.
 
+## [2.0.0] - 2026-06-25
+
+### Changed (BREAKING)
+
+- **`get_activity_item` → `get_activity_items` (batch).** The single-row tool is
+  replaced by a batch one: input is now `row_uuids` (an array of 1–100 ids) instead
+  of `row_uuid` (one id), and the output is `{ data: ActivityDetailItem[], not_found:
+  string[] }` instead of `{ data: ActivityDetailItem }`. Resolving several rows is now
+  one call / one rate-limit hit. Partial success is normal — ids that don't resolve
+  (unknown, cross-workspace, inactive, or malformed) come back in `not_found` rather
+  than erroring, and **`data` order is not guaranteed** (match by `id`). Wraps the new
+  `GET /activity/items` endpoint. MAJOR: a tool was renamed and its input/output
+  schema changed.
+
+### Changed
+
+- **`list_activities` now omits heavy fields.** To keep list rows lean, the bulky
+  fields `description`, `key_points`, `pricing_data`, and `excerpt` are no longer
+  returned in each item's `data`; fetch the full payload with `get_activity_items`.
+  The list output schema is a permissive record, so this is not a schema break — but
+  it changes the bytes consumers see.
+
 ## [1.1.2] - 2026-06-25
 
 ### Fixed

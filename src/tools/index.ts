@@ -4,7 +4,7 @@ import { registerWhoami, WHOAMI_NAME } from "./whoami.js";
 import { registerListCompetitors, LIST_COMPETITORS_NAME } from "./list_competitors.js";
 import { registerGetCompetitor, GET_COMPETITOR_NAME } from "./get_competitor.js";
 import { registerListActivities, LIST_ACTIVITIES_NAME } from "./list_activities.js";
-import { registerGetActivityItem, GET_ACTIVITY_ITEM_NAME } from "./get_activity_item.js";
+import { registerGetActivityItems, GET_ACTIVITY_ITEMS_NAME } from "./get_activity_items.js";
 import { registerListDigests, LIST_DIGESTS_NAME } from "./list_digests.js";
 import { registerListLatestDigests, LIST_LATEST_DIGESTS_NAME } from "./list_latest_digests.js";
 import { registerGetDigest, GET_DIGEST_NAME } from "./get_digest.js";
@@ -20,7 +20,7 @@ export function registerAllTools(server: McpServer, client: MeertrackClient): vo
   registerListCompetitors(server, client);
   registerGetCompetitor(server, client);
   registerListActivities(server, client);
-  registerGetActivityItem(server, client);
+  registerGetActivityItems(server, client);
   registerListDigests(server, client);
   registerListLatestDigests(server, client);
   registerGetDigest(server, client);
@@ -31,7 +31,7 @@ export const TOOL_NAMES = [
   LIST_COMPETITORS_NAME,
   GET_COMPETITOR_NAME,
   LIST_ACTIVITIES_NAME,
-  GET_ACTIVITY_ITEM_NAME,
+  GET_ACTIVITY_ITEMS_NAME,
   LIST_DIGESTS_NAME,
   LIST_LATEST_DIGESTS_NAME,
   GET_DIGEST_NAME,
@@ -42,7 +42,7 @@ export {
   LIST_COMPETITORS_NAME,
   GET_COMPETITOR_NAME,
   LIST_ACTIVITIES_NAME,
-  GET_ACTIVITY_ITEM_NAME,
+  GET_ACTIVITY_ITEMS_NAME,
   LIST_DIGESTS_NAME,
   LIST_LATEST_DIGESTS_NAME,
   GET_DIGEST_NAME,

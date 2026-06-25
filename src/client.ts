@@ -1,5 +1,6 @@
 import type {
   ActivityDetailResponse,
+  ActivityItemsResponse,
   ActivityListResponse,
   ApiErrorCode,
   ChangeType,
@@ -161,6 +162,12 @@ export class MeertrackClient {
       "GET",
       `/activity/${encodeURIComponent(rowUuid)}`,
     );
+  }
+
+  getActivityItems(rowUuids: string[]): Promise<ActivityItemsResponse> {
+    const query = new URLSearchParams();
+    query.set("id", rowUuids.join(","));
+    return this.request<ActivityItemsResponse>("GET", "/activity/items", query);
   }
 
   listDigests(params: ListDigestsParams = {}): Promise<DigestListResponse> {

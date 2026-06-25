@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import {
   ActivityListResponse,
+  ActivityItemsResponse,
   ApiErrorBody,
   CHANGE_TYPES,
   CompetitorDetailListResponse,
@@ -404,6 +405,62 @@ describe("ActivityListResponse", () => {
     expect(parsed.pagination.total).toBe(247);
     expect(parsed.data[2]?.section).toBe("x-posts");
     expect(parsed.data[3]?.section).toBe("reviews");
+  });
+
+  it("preserves section-specific data fields (no union-branch stripping)", () => {
+    // Regression: when `data` was a non-discriminated union, the SDK's output re-parse
+    // resolved every row to the first matching branch (blog-posts) and silently dropped
+    // fields like is_live / category / location / removed_at on job/pricing rows.
+    const parsed = ActivityListResponse.parse({
+      data: [
+        {
+          id: "4d11ac88-6f0e-4ed7-9b21-77bdb9c41122",
+          section: "job-listings",
+          change_type: "removed",
+          change_date: "2026-04-18T22:00:00Z",
+          competitor: { id: "a13f0e22-c55a-44d8-8b39-f64c1a7d33b6", name: "Globex" },
+          data: {
+            competitor: "Globex",
+            title: "Senior Backend Engineer",
+            category: "Engineering",
+            location: "Remote (US)",
+            is_live: false,
+            added_at: "2026-03-02T08:00:00Z",
+            removed_at: "2026-04-18T22:00:00Z",
+          },
+        },
+      ],
+      pagination: { next_cursor: null, has_more: false, total: 1 },
+    });
+    const data = parsed.data[0]?.data as Record<string, unknown>;
+    expect(data.category).toBe("Engineering");
+    expect(data.location).toBe("Remote (US)");
+    expect(data.is_live).toBe(false);
+    expect(data.removed_at).toBe("2026-04-18T22:00:00Z");
+  });
+});
+
+describe("ActivityItemsResponse", () => {
+  it("parses a batch with full payloads, a null competitor name, and not_found", () => {
+    const parsed = ActivityItemsResponse.parse({
+      data: [
+        {
+          id: "9f6d22aa-3c72-4a31-b81a-0e72a3c44b11",
+          section: "blog-posts",
+          competitor: { id: "5b2e21a4-9d4a-4f1b-8e75-2f5a1c11de01", name: null },
+          payload: {
+            competitor: "Acme Inc",
+            title: "Introducing Acme Pulse",
+            description: "a long body",
+            key_points: ["Real-time event stream"],
+          },
+        },
+      ],
+      not_found: ["4d11ac88-6f0e-4ed7-9b21-77bdb9c41122"],
+    });
+    expect(parsed.data[0]?.competitor.name).toBeNull();
+    expect((parsed.data[0]?.payload as Record<string, unknown>).description).toBe("a long body");
+    expect(parsed.not_found).toEqual(["4d11ac88-6f0e-4ed7-9b21-77bdb9c41122"]);
   });
 });
 

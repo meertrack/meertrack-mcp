@@ -12,7 +12,7 @@ export const GET_COMPETITOR_DESCRIPTION = [
   "- `metrics-claimed` (5), `logos` (5)",
   "- `linkedin-posts` (3), `x-posts` (3), `reviews` (3), `youtube-videos` (3), `events` (3)",
   "",
-  "These are overview caps — for more items in any section call `list_activities` with `competitor_ids=[id]` and the relevant `section`, which is paginated.",
+  "These are overview caps — for the full list in any section call `list_activities` with `competitor_ids=[id]` and the relevant `section` and NO `from`/`to`, which returns the complete all-time roster (paginated).",
   "",
   "Chaining: Use after `list_competitors` — pass the `id` from a result row. For an activity timeline across sections, call `list_activities` with `competitor_ids=[id]` instead.",
   "Errors: `not_found` (no such competitor in this workspace), `competitor_inactive` (archived — reactivate in dashboard), `forbidden_competitor` (different workspace), `unauthorized`, `rate_limited`.",

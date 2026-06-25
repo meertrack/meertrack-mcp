@@ -12,17 +12,22 @@ import { toToolError } from "../errors.js";
 export const LIST_ACTIVITIES_NAME = "list_activities";
 
 export const LIST_ACTIVITIES_DESCRIPTION = [
-  "Wraps `GET /activity`. Returns a cursor-paginated feed of detected changes across every tracked competitor — the core 'what shipped' surface.",
+  "Wraps `GET /activity`. Two modes, selected by whether you pass a date window:",
+  "- **Roster (no `from`/`to`)**: the complete all-time catalog across the tracked competitors — including items that already existed when tracking began (the initial backfill). Use this to pull a full list, e.g. every customer a competitor has published a case study about: `{ competitor_ids: [id], sections: ['case-studies'] }`. For versioned sections (job-listings, ads, logos, messaging, pricing) this is the current live snapshot, not removed history, so `change_type` is mostly `added` and `total` is the all-time count.",
+  "- **Change feed (with `from`/`to`)**: detected adds/updates/removals in that window only (excludes backfill) — the 'what shipped recently' surface.",
   "",
   "Filters:",
   `- \`sections\`: restrict to specific section types (enum of ${SECTION_SLUGS.length}: ${SECTION_SLUGS.join(", ")}).`,
   `- \`change_types\`: restrict to \`added\` / \`updated\` / \`removed\` (${CHANGE_TYPES.join(" / ")}).`,
   "- `competitor_ids`: narrow to specific competitors.",
-  "- `from` / `to`: ISO 8601 date-time window (inclusive). E.g. `from=2026-04-16T00:00:00Z` for the last 7 days.",
+  "- `from` / `to`: ISO 8601 date-time window (inclusive). Supplying EITHER switches off roster mode; e.g. `from=2026-04-16T00:00:00Z` for the last 7 days.",
   "",
-  "Pagination: response carries `pagination.next_cursor`, `pagination.has_more`, and `pagination.total` (total rows matching the filters across the whole window, not just this page). If `has_more`, call again with the `cursor` param set to `next_cursor` to fetch the next page. **Default `limit` is 50** to stay under Claude's tool-result size limit; max is 500.",
+  "Matching tip: for case studies the customer/company name is usually in `title` and/or the `url` slug (e.g. `.../case-studies/whop`) — match on both.",
   "",
-  "Chaining: Start here for any 'what happened recently' question; use `get_activity_item` to drill into a specific row's full payload.",
+  "Pagination: response carries `pagination.next_cursor`, `pagination.has_more`, and `pagination.total` (total rows matching the filters, not just this page). If `has_more`, call again with the `cursor` param set to `next_cursor`. **Default `limit` is 50** to stay under Claude's tool-result size limit; max is 500. The roster can be large — keep paging until `has_more` is false.",
+  "",
+  "Heavy fields (`description`, `key_points`, `pricing_data`, `excerpt`) are omitted from list rows to keep them lean; fetch the full payload for rows you care about with `get_activity_items` (pass their `id`s).",
+  "Chaining: `get_activity_items` returns full rows by id (one call for many ids).",
   "Errors: `invalid_parameter` (bad section/change_type/date), `invalid_cursor` (stale or tampered), `unauthorized`, `rate_limited`.",
 ].join("\n");
 

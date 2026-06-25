@@ -101,7 +101,10 @@ git push origin vX.Y.Z
 ```
 
 The tag push fires [.github/workflows/publish.yml](../.github/workflows/publish.yml),
-which re-runs the gate, then publishes to npm with provenance.
+which re-runs the gate, publishes to npm with provenance, then cuts a GitHub
+Release for the tag with notes pulled from the matching `CHANGELOG.md` section
+(via [scripts/extract-changelog.mjs](../scripts/extract-changelog.mjs)) — no
+manual `gh release create` needed.
 Watch:
 
 ```bash

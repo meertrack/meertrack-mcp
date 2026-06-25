@@ -121,13 +121,16 @@ const ACTIVITY_LIST_BODY = {
   pagination: { next_cursor: "abc123", has_more: true, total: 42 },
 };
 
-const ACTIVITY_DETAIL_BODY = {
-  data: {
-    id: ACTIVITY_ID,
-    section: "blog-posts",
-    competitor: { id: COMPETITOR_ID, name: "Acme" },
-    payload: ACTIVITY_ITEM.data,
-  },
+const ACTIVITY_DETAIL_ITEM = {
+  id: ACTIVITY_ID,
+  section: "blog-posts",
+  competitor: { id: COMPETITOR_ID, name: "Acme" },
+  payload: ACTIVITY_ITEM.data,
+};
+
+const ACTIVITY_ITEMS_BODY = {
+  data: [ACTIVITY_DETAIL_ITEM],
+  not_found: [] as string[],
 };
 
 const DIGEST = {
@@ -322,25 +325,41 @@ describe("list_activities", () => {
   });
 });
 
-describe("get_activity_item", () => {
-  it("calls GET /activity/{row_uuid}", async () => {
-    fetchMock.enqueue(jsonResponse(ACTIVITY_DETAIL_BODY));
+describe("get_activity_items", () => {
+  const ID_B = "4d11ac88-6f0e-4ed7-9b21-77bdb9c41122";
+
+  it("calls GET /activity/items with a comma-separated id list", async () => {
+    fetchMock.enqueue(jsonResponse(ACTIVITY_ITEMS_BODY));
     const result = await pair.client.callTool({
-      name: "get_activity_item",
-      arguments: { row_uuid: ACTIVITY_ID },
+      name: "get_activity_items",
+      arguments: { row_uuids: [ACTIVITY_ID] },
     });
     expectToolSuccess(result);
-    expect(fetchMock.calls[0]!.url).toBe(`https://api.example/v1/activity/${ACTIVITY_ID}`);
+    expect(fetchMock.calls[0]!.url).toBe(
+      `https://api.example/v1/activity/items?id=${ACTIVITY_ID}`,
+    );
   });
 
-  it("maps 404 to 'No such row in this workspace.'", async () => {
-    fetchMock.enqueue(errorResponse(404, "not_found", "row not found"));
+  it("batches multiple ids and surfaces partial not_found", async () => {
+    fetchMock.enqueue(jsonResponse({ data: [ACTIVITY_DETAIL_ITEM], not_found: [ID_B] }));
     const result = await pair.client.callTool({
-      name: "get_activity_item",
-      arguments: { row_uuid: ACTIVITY_ID },
+      name: "get_activity_items",
+      arguments: { row_uuids: [ACTIVITY_ID, ID_B] },
+    });
+    expectToolSuccess(result);
+    expect(fetchMock.calls[0]!.url).toBe(
+      `https://api.example/v1/activity/items?id=${encodeURIComponent(`${ACTIVITY_ID},${ID_B}`)}`,
+    );
+    expect(result.structuredContent).toMatchObject({ not_found: [ID_B] });
+  });
+
+  it("maps an upstream error into a tool error", async () => {
+    fetchMock.enqueue(errorResponse(401, "unauthorized", "bad key"));
+    const result = await pair.client.callTool({
+      name: "get_activity_items",
+      arguments: { row_uuids: [ACTIVITY_ID] },
     });
     expect(result.isError).toBe(true);
-    expect(firstText(result)).toBe("No such row in this workspace.");
   });
 });
 

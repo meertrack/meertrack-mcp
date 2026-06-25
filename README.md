@@ -234,7 +234,7 @@ bearer support is minimal today; full OAuth parity is tracked as Phase 11.
 ## The 8 tools
 
 All read-only, all snake_case. Collection returns use the `list_` prefix;
-single-item returns use `get_`. Every list response includes
+row-detail returns use `get_` (single id or a batch of ids). Every list response includes
 `pagination.next_cursor` and `pagination.has_more`, and agents must pass
 `next_cursor` back as `cursor` to fetch the next page.
 
@@ -244,7 +244,7 @@ single-item returns use `get_`. Every list response includes
 | Competitors | [`list_competitors`](src/tools/list_competitors.ts) | `GET /competitors` | Defaults to `expand=full` so agents don't round-trip for socials/pages. |
 | Competitors | [`get_competitor`](src/tools/get_competitor.ts) | `GET /competitors/{id}` | Profile + recent items from each tracked section (blog, pricing, jobs, ads, …) with per-section caps. |
 | Activity | [`list_activities`](src/tools/list_activities.ts) | `GET /activity` | Core "what shipped" feed. Default `limit=50` to stay under tool-result size limits. |
-| Activity | [`get_activity_item`](src/tools/get_activity_item.ts) | `GET /activity/{row_uuid}` | Drill-in for a specific row's full payload. |
+| Activity | [`get_activity_items`](src/tools/get_activity_items.ts) | `GET /activity/items` | Batch drill-in: full payloads for 1–100 row ids; unresolved ids returned in `not_found`. |
 | Digests | [`list_digests`](src/tools/list_digests.ts) | `GET /digests` | Cursor-paginated weekly digests. No `total` field (unlike activity). |
 | Digests | [`list_latest_digests`](src/tools/list_latest_digests.ts) | `GET /digests/latest` | No params; one-shot "what happened this week". |
 | Digests | [`get_digest`](src/tools/get_digest.ts) | `GET /digests/{id}` | Full summary + themes for one competitor × period. |

@@ -26,7 +26,7 @@ labels: bug
 
 ## Tool involved
 
-<!-- Which of the 8 tools was being called when this surfaced (whoami, list_competitors, get_competitor, list_activities, get_activity_item, list_digests, list_latest_digests, get_digest), or N/A. -->
+<!-- Which of the 8 tools was being called when this surfaced (whoami, list_competitors, get_competitor, list_activities, get_activity_items, list_digests, list_latest_digests, get_digest), or N/A. -->
 
 ## Error message
 

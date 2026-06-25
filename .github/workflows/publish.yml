@@ -12,7 +12,7 @@ jobs:
     name: npm publish (with provenance)
     runs-on: ubuntu-latest
     permissions:
-      contents: read
+      contents: write # create the GitHub Release
       id-token: write
 
     steps:
@@ -59,3 +59,13 @@ jobs:
 
       - name: Publish to npm
         run: npm publish --access public --provenance
+
+      - name: Create GitHub Release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          node scripts/extract-changelog.mjs > release-notes.md
+          gh release create "$GITHUB_REF_NAME" \
+            --title "$GITHUB_REF_NAME" \
+            --notes-file release-notes.md \
+            --verify-tag
