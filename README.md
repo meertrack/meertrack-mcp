@@ -242,7 +242,7 @@ single-item returns use `get_`. Every list response includes
 | --- | --- | --- | --- |
 | Identity | [`whoami`](src/tools/whoami.ts) | `GET /me` | Confirms workspace + subscription + rate-limit snapshot. Call first. |
 | Competitors | [`list_competitors`](src/tools/list_competitors.ts) | `GET /competitors` | Defaults to `expand=full` so agents don't round-trip for socials/pages. |
-| Competitors | [`get_competitor`](src/tools/get_competitor.ts) | `GET /competitors/{id}` | 11 tracked sections (blog, pricing, jobs, …) with per-section caps. |
+| Competitors | [`get_competitor`](src/tools/get_competitor.ts) | `GET /competitors/{id}` | Profile + recent items from each tracked section (blog, pricing, jobs, ads, …) with per-section caps. |
 | Activity | [`list_activities`](src/tools/list_activities.ts) | `GET /activity` | Core "what shipped" feed. Default `limit=50` to stay under tool-result size limits. |
 | Activity | [`get_activity_item`](src/tools/get_activity_item.ts) | `GET /activity/{row_uuid}` | Drill-in for a specific row's full payload. |
 | Digests | [`list_digests`](src/tools/list_digests.ts) | `GET /digests` | Cursor-paginated weekly digests. No `total` field (unlike activity). |

@@ -6,6 +6,7 @@ export const SECTION_SLUGS = [
   "blog-posts",
   "press-posts",
   "job-listings",
+  "ads",
   "pricing",
   "case-studies",
   "linkedin-posts",
@@ -314,6 +315,21 @@ export const ReviewItem = z.object({
 });
 export type ReviewItem = z.infer<typeof ReviewItem>;
 
+export const AdItem = z.object({
+  ...sectionItemBase,
+  // Ad platform (e.g. `"linkedin"`). Left as free-form text — the backend owns
+  // the value set and new platforms shouldn't break output validation.
+  platform: z.string().nullable().optional(),
+  // Creative format (e.g. `"IMAGE"`, `"VIDEO"`). Free-form for the same reason.
+  ad_format: z.string().nullable().optional(),
+  content: z.string().nullable().optional(),
+  image_url: z.string().nullable().optional(),
+  is_live: z.boolean().nullable().optional(),
+  added_at: z.string().datetime({ offset: true }).nullable().optional(),
+  removed_at: z.string().datetime({ offset: true }).nullable().optional(),
+});
+export type AdItem = z.infer<typeof AdItem>;
+
 /**
  * Union of every section item shape. The active branch is selected by the
  * envelope's `section` value — not by inspecting properties (several branches
@@ -333,6 +349,7 @@ export const SectionItem = z.union([
   SitemapUrlItem,
   XPostItem,
   ReviewItem,
+  AdItem,
 ]);
 export type SectionItem = z.infer<typeof SectionItem>;
 
@@ -343,6 +360,7 @@ export const CompetitorOverviewItems = z.object({
   "press-posts": z.array(PressPostItem),
   "case-studies": z.array(CaseStudyItem),
   "job-listings": z.array(JobListingItem),
+  ads: z.array(AdItem),
   pricing: z.array(PricingItem),
   messaging: z.array(MessagingItem),
   "metrics-claimed": z.array(MetricsClaimedItem),

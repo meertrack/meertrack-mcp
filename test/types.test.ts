@@ -22,10 +22,11 @@ import {
 // zod schema should be updated here at the same time.
 
 describe("enum constants", () => {
-  it("exports 14 section slugs and 3 change types", () => {
-    expect(SECTION_SLUGS).toHaveLength(14);
+  it("exports 15 section slugs and 3 change types", () => {
+    expect(SECTION_SLUGS).toHaveLength(15);
     expect(SECTION_SLUGS).toContain("x-posts");
     expect(SECTION_SLUGS).toContain("reviews");
+    expect(SECTION_SLUGS).toContain("ads");
     expect(CHANGE_TYPES).toEqual(["added", "updated", "removed"]);
   });
 
@@ -167,7 +168,7 @@ describe("CompetitorListResponse", () => {
 });
 
 describe("CompetitorOverviewResponse", () => {
-  it("parses the overview example with all 13 section buckets", () => {
+  it("parses the overview example with all 14 section buckets", () => {
     const parsed = CompetitorOverviewResponse.parse({
       data: {
         id: "5b2e21a4-9d4a-4f1b-8e75-2f5a1c11de01",
@@ -227,6 +228,21 @@ describe("CompetitorOverviewResponse", () => {
               removed_at: null,
             },
           ],
+          ads: [
+            {
+              competitor: "Acme Inc",
+              tags: [],
+              discovered_at: "2026-06-25T14:06:15.281646+00:00",
+              initial_run: true,
+              platform: "linkedin",
+              ad_format: "IMAGE",
+              content: "Introducing Acme Pulse — real-time analytics.",
+              image_url: "https://cdn.meertrack.com/ads/acme-pulse.jpg",
+              is_live: true,
+              added_at: "2026-06-25T14:06:12.220577+00:00",
+              removed_at: null,
+            },
+          ],
           pricing: [
             {
               competitor: "Acme Inc",
@@ -279,6 +295,8 @@ describe("CompetitorOverviewResponse", () => {
     expect(parsed.data.items["job-listings"][0]?.title).toBe("Senior Backend Engineer");
     expect(parsed.data.items["x-posts"][0]?.post_id).toBe("2062197458961358904");
     expect(parsed.data.items["reviews"][0]?.rating).toBe("4/5");
+    expect(parsed.data.items["ads"][0]?.platform).toBe("linkedin");
+    expect(parsed.data.items["ads"][0]?.ad_format).toBe("IMAGE");
   });
 });
 

@@ -87,6 +87,7 @@ const COMPETITOR_OVERVIEW_BODY = {
       "press-posts": [],
       "case-studies": [],
       "job-listings": [],
+      ads: [],
       pricing: [],
       messaging: [],
       "metrics-claimed": [],

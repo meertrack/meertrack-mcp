@@ -8,7 +8,7 @@ export const GET_COMPETITOR_NAME = "get_competitor";
 export const GET_COMPETITOR_DESCRIPTION = [
   "Wraps `GET /competitors/{id}`. Returns a single competitor's full profile plus the most recent items from each tracked section. Sections returned (with per-section item caps):",
   "- `blog-posts` (up to 3), `press-posts` (3), `case-studies` (3)",
-  "- `job-listings` (5), `pricing` (1), `messaging` (5)",
+  "- `job-listings` (5), `ads` (5), `pricing` (1), `messaging` (5)",
   "- `metrics-claimed` (5), `logos` (5)",
   "- `linkedin-posts` (3), `x-posts` (3), `reviews` (3), `youtube-videos` (3), `events` (3)",
   "",

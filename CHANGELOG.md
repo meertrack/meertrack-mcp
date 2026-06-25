@@ -13,9 +13,17 @@ Tool schemas are part of the public API contract; agents cache them. So:
 - **PATCH**: bug fixes, description improvements, internal refactors with
   no schema impact.
 
-## [Unreleased]
+## [1.1.2] - 2026-06-25
 
 ### Fixed
+
+- **Section drift: the `ads` section is now recognized.** The upstream API added
+  an `ads` section (LinkedIn ads: `platform`, `ad_format`, `content`, `image_url`,
+  `is_live`, `added_at`, `removed_at`). Added the `ads` slug
+  (→ 15), a new permissive `AdItem` schema, a `SectionItem` union branch, and an
+  explicit `ads` bucket in the `get_competitor` overview output schema so ad rows
+  round-trip and the overview contract documents the section. Additive (new enum
+  value + new optional fields) — backward-compatible.
 
 - **Section drift: `x-posts` and `reviews` are now recognized.** The upstream
   API serves these two section types, but the connector's `SECTION_SLUGS`
