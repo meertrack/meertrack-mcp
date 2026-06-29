@@ -239,6 +239,7 @@ describe("CompetitorOverviewResponse", () => {
               ad_format: "IMAGE",
               content: "Introducing Acme Pulse — real-time analytics.",
               image_url: "https://cdn.meertrack.com/ads/acme-pulse.jpg",
+              ad_url: "https://acme.com/pulse",
               is_live: true,
               added_at: "2026-06-25T14:06:12.220577+00:00",
               removed_at: null,
@@ -298,6 +299,7 @@ describe("CompetitorOverviewResponse", () => {
     expect(parsed.data.items["reviews"][0]?.rating).toBe("4/5");
     expect(parsed.data.items["ads"][0]?.platform).toBe("linkedin");
     expect(parsed.data.items["ads"][0]?.ad_format).toBe("IMAGE");
+    expect(parsed.data.items["ads"][0]?.ad_url).toBe("https://acme.com/pulse");
   });
 });
 

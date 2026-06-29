@@ -13,6 +13,17 @@ Tool schemas are part of the public API contract; agents cache them. So:
 - **PATCH**: bug fixes, description improvements, internal refactors with
   no schema impact.
 
+## [2.1.0] - 2026-06-29
+
+### Added
+
+- **`ad_url` on ad items.** The upstream API added a nullable `ad_url` (the ad's
+  destination/landing URL) to the `ads` section. Added it to the `AdItem` schema so
+  it round-trips through the `get_competitor` overview output — without it, the
+  strict `AdItem` parse would silently strip the field. Activity tools already pass
+  it through via their permissive record. Additive (new optional field) -
+  backward-compatible.
+
 ## [2.0.0] - 2026-06-25
 
 ### Changed (BREAKING)

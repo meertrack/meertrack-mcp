@@ -324,6 +324,8 @@ export const AdItem = z.object({
   ad_format: z.string().nullable().optional(),
   content: z.string().nullable().optional(),
   image_url: z.string().nullable().optional(),
+  // Destination/landing URL the ad links to. Nullable — not present for every creative.
+  ad_url: z.string().nullable().optional(),
   is_live: z.boolean().nullable().optional(),
   added_at: z.string().datetime({ offset: true }).nullable().optional(),
   removed_at: z.string().datetime({ offset: true }).nullable().optional(),
