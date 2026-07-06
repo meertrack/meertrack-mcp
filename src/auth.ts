@@ -252,8 +252,9 @@ export function buildWwwAuthenticateHeader(
 /**
  * Redact every `mt_live_…` token in `value`. Apply to any string before
  * writing it to logs or error messages. Also redacts `Bearer mt_live_…`.
- * JWTs are not redacted here — they're not secrets in the same way (signed,
- * short-lived, audience-bound) — but avoid logging them anyway.
+ * JWTs are not redacted here — they're audience-bound and expire on their
+ * own — but they are live bearer credentials for up to an hour, so never
+ * log them.
  */
 export function redactApiKeys(value: string): string {
   return value.replace(/mt_live_[A-Za-z0-9_-]+/g, "mt_live_***");

@@ -179,7 +179,7 @@ Two auth paths are supported:
   Dynamic Client Registration at `https://meertrack.com/oauth/register`, and
   drive the full PKCE-gated authorize → token flow. The user clicks
   "Connect", signs in at `meertrack.com`, hits Allow on the consent screen,
-  and is done. No key handling. Access tokens are 10-minute JWTs
+  and is done. No key handling. Access tokens are 1-hour JWTs
   (RS256, `aud=https://mcp.meertrack.com/mcp`); refresh tokens are rotated
   per OAuth 2.1 §4.3.1.
 - **`Authorization: Bearer mt_live_…`** — paste a static API key for custom
