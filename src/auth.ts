@@ -33,6 +33,34 @@ import {
 
 export const API_KEY_PREFIX = "mt_live_";
 
+/**
+ * Scopes this resource server understands. Single source for both the PRM
+ * `scopes_supported` array and the `scope` parameter of `WWW-Authenticate`
+ * (RFC 6750 §3) — a client that has never fetched the PRM learns what to ask
+ * for from the 401 alone, and the two lists cannot disagree.
+ */
+export const SUPPORTED_SCOPES = ["read"] as const;
+
+/**
+ * Why a request was rejected, as a stable machine-readable code. Emitted on the
+ * 401 log line so auth failures are countable in aggregate.
+ *
+ * `jwt_bad_audience` is the one to alert on: it is the direct symptom of the
+ * resource-identifier / `aud` drift that silently broke new authorizations for
+ * a month in 2026-07. A 401 with no reason attached — which is all this server
+ * used to log — makes that class of failure invisible.
+ */
+export type AuthOutcome =
+  | "no_credentials"
+  | "api_key_malformed"
+  | "jwt_expired"
+  | "jwt_bad_audience"
+  | "jwt_bad_issuer"
+  | "jwt_bad_signature"
+  | "jwt_malformed"
+  | "jwt_missing_claims"
+  | "jwt_unverified";
+
 /** Full pattern: `mt_live_` followed by base64url characters. */
 const API_KEY_PATTERN = /^mt_live_[A-Za-z0-9_-]+$/;
 
@@ -104,6 +132,8 @@ export type HttpAuthResolution =
       code: "unauthorized";
       message: string;
       wwwAuthenticate: string;
+      /** Machine-readable reason, for the 401 log line. Never sent to the client. */
+      authOutcome: AuthOutcome;
     };
 
 /** Subset of JWT claims we care about after OAuth verification. */
@@ -167,6 +197,7 @@ export async function extractHttpBearer(
       message:
         "Missing credentials. Send `Authorization: Bearer <mt_live_… or OAuth access token>` (preferred) or `?api_key=mt_live_…` as a query-string fallback.",
       wwwAuthenticate: buildWwwAuthenticateHeader(ctx.protectedResourceMetadataUrl),
+      authOutcome: "no_credentials",
     };
   }
 
@@ -190,6 +221,7 @@ export async function extractHttpBearer(
         error: "invalid_token",
         description: message,
       }),
+      authOutcome: "api_key_malformed",
     };
   }
 
@@ -204,6 +236,7 @@ export async function extractHttpBearer(
         error: "invalid_token",
         description: verification.message,
       }),
+      authOutcome: verification.outcome,
     };
   }
 
@@ -233,12 +266,19 @@ export function parseBearerHeader(value: string): string | null {
  * Optional `reason` adds RFC 6750 §3 `error` + `error_description` params so
  * clients can tell "no token sent" (omit reason → prompt user) apart from
  * "token rejected" (`error="invalid_token"` → silently refresh).
+ *
+ * `scope` is always included — MCP (2025-11-25 §Authorization) says servers
+ * SHOULD advertise it per RFC 6750 §3 so a client that has not yet fetched the
+ * PRM still knows what to request at `/authorize`. It is sourced from
+ * `SUPPORTED_SCOPES`, the same constant the PRM's `scopes_supported` uses.
  */
 export function buildWwwAuthenticateHeader(
   protectedResourceMetadataUrl: string,
   reason?: { error: "invalid_token" | "insufficient_scope"; description: string },
 ): string {
-  const base = `Bearer realm="meertrack", resource_metadata="${protectedResourceMetadataUrl}"`;
+  const base =
+    `Bearer realm="meertrack", resource_metadata="${protectedResourceMetadataUrl}"` +
+    `, scope="${SUPPORTED_SCOPES.join(" ")}"`;
   if (!reason) return base;
   // HTTP header values are ByteStrings (≤ U+00FF). RFC 6750 §3 also restricts
   // error_description to ASCII printable. Strip anything outside U+0020-U+007E
@@ -284,7 +324,7 @@ export function __resetJwksCache(): void {
 
 type OAuthVerification =
   | { ok: true; claims: JwtClaims }
-  | { ok: false; message: string };
+  | { ok: false; message: string; outcome: AuthOutcome };
 
 /**
  * Verify an OAuth access token locally. Checks signature (via JWKS), `iss`,
@@ -307,11 +347,12 @@ export async function verifyOAuthToken(
       return {
         ok: false,
         message: "Access token is missing required claims (sub, company_id).",
+        outcome: "jwt_missing_claims",
       };
     }
     return { ok: true, claims };
   } catch (err) {
-    return { ok: false, message: classifyJwtError(err) };
+    return { ok: false, ...classifyJwtError(err) };
   }
 }
 
@@ -339,21 +380,36 @@ function extractClaims(payload: JWTPayload): JwtClaims | null {
 }
 
 /**
- * Map `jose` errors to short, client-safe messages. Never leak signature
- * details — "invalid token" is enough; anything more helps attackers.
+ * Map `jose` errors to short, client-safe messages plus a stable log code.
+ * Never leak signature details in the message — "invalid token" is enough;
+ * anything more helps attackers. The `outcome` code never reaches the client.
+ *
+ * `aud` and `iss` failures are split apart deliberately: both arrive as
+ * `JWTClaimValidationFailed`, but only `jwt_bad_audience` indicates the
+ * resource-identifier drift this server has been bitten by, and collapsing
+ * them would bury the one signal worth alerting on.
  */
-function classifyJwtError(err: unknown): string {
+function classifyJwtError(err: unknown): { message: string; outcome: AuthOutcome } {
   if (err instanceof joseErrors.JWTExpired) {
-    return "Access token has expired. Refresh it at the authorization server.";
+    return {
+      message: "Access token has expired. Refresh it at the authorization server.",
+      outcome: "jwt_expired",
+    };
   }
   if (err instanceof joseErrors.JWTClaimValidationFailed) {
-    return "Access token claims failed validation (wrong issuer or audience).";
+    return {
+      message: "Access token claims failed validation (wrong issuer or audience).",
+      outcome: err.claim === "aud" ? "jwt_bad_audience" : "jwt_bad_issuer",
+    };
   }
   if (err instanceof joseErrors.JWSSignatureVerificationFailed) {
-    return "Access token signature is invalid.";
+    return { message: "Access token signature is invalid.", outcome: "jwt_bad_signature" };
   }
   if (err instanceof joseErrors.JOSEError) {
-    return "Access token is malformed or could not be verified.";
+    return {
+      message: "Access token is malformed or could not be verified.",
+      outcome: "jwt_malformed",
+    };
   }
-  return "Access token verification failed.";
+  return { message: "Access token verification failed.", outcome: "jwt_unverified" };
 }

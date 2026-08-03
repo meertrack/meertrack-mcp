@@ -13,6 +13,62 @@ Tool schemas are part of the public API contract; agents cache them. So:
 - **PATCH**: bug fixes, description improvements, internal refactors with
   no schema impact.
 
+## [2.2.0] - 2026-08-03
+
+OAuth discovery corrections for the hosted deployment. No tool schemas changed,
+and stdio behavior is unchanged — if you connect via `npx -y @meertrack/mcp`
+with a `mt_live_…` key, nothing in this release affects you.
+
+### Fixed
+
+- **PRM `resource` now names the MCP endpoint, not the bare origin.** The RFC
+  9728 document advertised `https://mcp.meertrack.com` while the server
+  validated `aud=https://mcp.meertrack.com/mcp` and the authorization server
+  bound the same path-bearing value. A client that used the advertised
+  `resource` as its RFC 8707 resource indicator was rejected at
+  `/oauth/authorize` with `invalid_target`.
+
+  The value is now read from `MEERTRACK_OAUTH_AUDIENCE` — the config that
+  already holds it — instead of being derived independently from
+  `MEERTRACK_MCP_PRM_URL`. Two separately-maintained spellings of one identifier
+  is the defect; `73506a8` (2026-05-28) introduced the mismatch by "aligning"
+  `resource` down to the origin, and a hardcoded literal in the tests could not
+  catch it. **Token validation is unchanged** — `MEERTRACK_OAUTH_AUDIENCE` keeps
+  its value and remains the only input to `jwtVerify`, so no token in
+  circulation was affected.
+
+  On the timeline: authorizations stopped succeeding around 2026-07-04, five
+  weeks after `73506a8` shipped, so the mismatch was necessary but not
+  sufficient. The trigger was a change in that window — most plausibly the
+  authorization server tightening resource validation, or a client rollout that
+  began sending `resource` at all. Recorded here as unconfirmed rather than
+  asserted.
+
+  Why it stayed hidden for a month: refresh-token rotation performs no resource
+  check, so every existing session kept working and only *new* connections
+  failed. Nothing in this server's traffic changed.
+
+### Added
+
+- **Discovery at the RFC 9728 §3.1 path.** The document is now served from
+  `/.well-known/oauth-protected-resource/mcp` as well as the bare path
+  (identical bytes). MCP 2025-11-25 requires clients to support both and to try
+  the suffixed one first. The bare path is retained as a compatibility shim for
+  clients and cached state that probe the root.
+- `resource_metadata` in `WWW-Authenticate` now points at the path-suffixed URL
+  — Claude's primary discovery mechanism.
+- `scope="read"` in `WWW-Authenticate` (RFC 6750 §3, an MCP SHOULD), sourced
+  from the same constant as the PRM's `scopes_supported`.
+- `access-control-allow-origin: *` and `cache-control: public, max-age=60` on
+  both discovery documents; `/.well-known/*` is now exempt from the origin
+  allowlist, since enforcing one there contradicted the CORS header and
+  protected nothing (the same bytes are served to a request with no `Origin`).
+- **Observability for this class of failure**, which previously had none:
+  `auth_outcome` on every 401 (`jwt_bad_audience` is the direct alarm) and a
+  `prm_fetch` event. Plus `.github/workflows/prm-canary.yml`, a scheduled probe
+  of the deployed documents. The authorization-server half — *zero auth codes
+  issued in 24h* — still needs alerting in `meertrack_frontend`.
+
 ## [2.1.0] - 2026-06-29
 
 ### Added

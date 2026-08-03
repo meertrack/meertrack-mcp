@@ -8,14 +8,36 @@ Fields:
 | Field | Type | Notes |
 | --- | --- | --- |
 | `ts` | string (ISO-8601) | Server-side timestamp |
-| `event` | string | `http_request` for the per-request line; `stdio_ready`, `stdio_shutdown`, etc. for transport lifecycle |
+| `event` | string | `http_request` for the per-request line; `prm_fetch` for a discovery-document read; `stdio_ready`, `stdio_shutdown`, etc. for transport lifecycle |
 | `status` | number | HTTP status returned to the client |
 | `duration_ms` | number | Wall-clock duration |
 | `mcp_method` | string? | JSON-RPC method extracted from the body (`tools/list`, `tools/call`, …) |
 | `tool` | string? | Tool name when `mcp_method === "tools/call"` |
 | `mcp_protocol_version` | string? | `MCP-Protocol-Version` request header |
 | `client_user_agent` | string? | `User-Agent` request header |
+| `auth_outcome` | string? | Present on every 401. Why the request was rejected — see below |
+| `path` | string? | On `prm_fetch`: which discovery path was read |
 | `meertrack_request_id` | string? | Upstream `X-Request-Id` from the Meertrack API response. Use this to correlate against backend logs |
+
+### `auth_outcome`
+
+`no_credentials`, `api_key_malformed`, `jwt_expired`, `jwt_bad_audience`,
+`jwt_bad_issuer`, `jwt_bad_signature`, `jwt_malformed`, `jwt_missing_claims`,
+`jwt_unverified`.
+
+**`jwt_bad_audience` is the one to alert on.** It means a token was signed by the
+right issuer but names a different resource than this server validates — the
+symptom of the resource-identifier drift that silently broke all *new*
+authorizations for a month in 2026-07 while existing sessions kept working. A
+bare 401 count cannot distinguish it from routine token expiry, which is why it
+went unnoticed.
+
+`prm_fetch` is the leading indicator for the same class of failure: clients
+fetch discovery before they can complete authorization, so a stream of
+`prm_fetch` from a Claude user-agent with no subsequent authorized
+`http_request` means the flow is breaking *at the authorization server*. That
+half is not observable from this repo — see the alerting note in
+`docs/ARCHITECTURE.md`.
 
 The stdio transport emits the same line shape on lifecycle events
 (`stdio_ready`, `stdio_shutdown`). It deliberately does **not** log per-request

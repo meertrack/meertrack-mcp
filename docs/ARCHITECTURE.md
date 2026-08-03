@@ -56,8 +56,9 @@ Numbered flow:
      `aud=https://mcp.meertrack.com/mcp`). The original JWT is forwarded to
      upstream so `/api/v1/*` handlers can authorize the same way.
    Requests with no or malformed credentials return 401 + `WWW-Authenticate:
-   Bearer realm="meertrack", resource_metadata=<PRM URL>` per RFC 9728,
-   without calling upstream.
+   Bearer realm="meertrack", resource_metadata=<PRM URL>, scope="read"` per
+   RFC 9728 / RFC 6750 §3, without calling upstream. Every 401 is logged with
+   an `auth_outcome` code — see `docs/OBSERVABILITY.md`.
 3. **Tool dispatch.** `McpServer` routes to the named tool, validates the
    zod input schema, and hands off to the handler.
 4. **Upstream call.** `MeertrackClient` issues a single `GET` to
@@ -103,6 +104,14 @@ server across requests with different bearers. Not a v1 optimization.
   `MEERTRACK_OAUTH_*` env vars are set; when unset, PRM returns
   `authorization_servers: []` and only `mt_live_` keys are accepted.
 
+  **Alerting gap that lives in that repo, not this one.** A broken
+  `/oauth/authorize` produces no signal here: refresh-token rotation performs no
+  resource check, so existing users are unaffected and this server sees normal
+  traffic. `.github/workflows/prm-canary.yml` covers the resource-server half.
+  The half that matters — *zero authorization codes issued in 24h*, and any
+  `/oauth/authorize → invalid_target` — must be alerted on in
+  `meertrack_frontend`.
+
 ## Deployment
 
 - **Local**: `npx -y @meertrack/mcp` on Node ≥ 20. Stdio transport, key via
@@ -118,6 +127,23 @@ When the three `MEERTRACK_OAUTH_*` env vars are set (`ISSUER`, `AUDIENCE`,
 `JWKS_URL`), the HTTP transport:
 
 - Advertises the AS in the PRM document (`authorization_servers`).
+- Serves that document from **both** `/.well-known/oauth-protected-resource/mcp`
+  (RFC 9728 §3.1 — the resource identifier has a `/mcp` path, so the suffix is
+  inserted after the well-known prefix) and the bare
+  `/.well-known/oauth-protected-resource`. MCP 2025-11-25 requires clients to
+  support both and to try them in that order. Identical bytes from each, with
+  `access-control-allow-origin: *` (discovery is cross-origin and precedes any
+  credential) and a short `cache-control`.
+- Advertises `resource` as the **full MCP endpoint URL including its path**
+  (`https://mcp.meertrack.com/mcp`) — the string users paste into Claude and the
+  string the AS binds as `aud`. It is read from `MEERTRACK_OAUTH_AUDIENCE`
+  rather than kept as a separate copy: when those two disagreed, every *new*
+  authorization was rejected with `invalid_target` while existing sessions
+  continued working, so the breakage was invisible for a month. Do not
+  reintroduce a second spelling of this string.
+- Exempts `/.well-known/*` from the origin allowlist. These are public,
+  unauthenticated documents that advertise `ACAO: *`; the DNS-rebinding threat
+  model the allowlist addresses is about `/mcp`.
 - 302-redirects `GET /.well-known/oauth-authorization-server` to the issuer's
   real metadata URL. Some MCP clients probe the RS for AS metadata before (or
   instead of) consulting the PRM's `authorization_servers` pointer; the

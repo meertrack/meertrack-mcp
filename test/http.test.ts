@@ -5,7 +5,12 @@ import { Logger } from "../src/logger.js";
 import { __resetJwksCache } from "../src/auth.js";
 import { createMockFetch, jsonResponse } from "./helpers/mockFetch.js";
 
+/** Base PRM URL, as configured via `MEERTRACK_MCP_PRM_URL`. */
 const PRM_URL = "https://mcp.meertrack.com/.well-known/oauth-protected-resource";
+/** The URL actually advertised on 401s — RFC 9728 §3.1 path-suffixed. */
+const CANONICAL_PRM_URL = `${PRM_URL}${MCP_PATH}`;
+/** The resource identifier: the MCP endpoint, exactly as a user pastes it. */
+const RESOURCE = `https://mcp.meertrack.com${MCP_PATH}`;
 const ALLOWED_ORIGINS = ["https://claude.ai", "https://claude.com"];
 const MCP_URL = `http://mcp.meertrack.test${MCP_PATH}`;
 
@@ -55,43 +60,136 @@ describe("health", () => {
 });
 
 describe("OAuth Protected Resource Metadata (RFC 9728)", () => {
-  it("serves a valid PRM stub with empty authorization_servers (no OAuth configured)", async () => {
-    const app = makeApp();
-    const res = await app.fetch(new Request(`http://localhost${PRM_PATH}`));
-    expect(res.status).toBe(200);
-    const body = (await res.json()) as Record<string, unknown>;
-    // `resource` is the bare-origin resource identifier (RFC 8707) — must
-    // match the JWT `aud` the AS mints, not a specific endpoint path.
-    expect(body["resource"]).toBe("https://mcp.meertrack.com");
-    expect(body["authorization_servers"]).toEqual([]);
-    expect(body["scopes_supported"]).toEqual(["read"]);
-    expect(body["bearer_methods_supported"]).toEqual(["header"]);
-    expect(body["resource_name"]).toBe("Meertrack MCP");
-    // OAuth-only fields are absent when OAuth isn't configured.
-    expect(body).not.toHaveProperty("jwks_uri");
-    expect(body).not.toHaveProperty("resource_documentation");
-  });
-
-  it("advertises the authorization server + jwks_uri + resource_documentation when OAuth is configured", async () => {
-    const app = createHttpApp({
+  /**
+   * OAuth-configured is the production shape, so it's the default here — the
+   * suffixed route and the canonical `WWW-Authenticate` URL only exist in this
+   * configuration, and testing predominantly against the no-OAuth shape would
+   * leave the code that actually ships uncovered.
+   */
+  function prmApp(oauth?: Partial<{ issuer: string; audience: string; jwksUrl: string }>) {
+    return createHttpApp({
       allowedOrigins: ALLOWED_ORIGINS,
       protectedResourceMetadataUrl: PRM_URL,
       baseUrl: "https://api.example/v1",
       logger: silentLogger,
       oauth: {
         issuer: "https://meertrack.com",
-        audience: "https://mcp.meertrack.com",
+        audience: RESOURCE,
         jwksUrl: "https://meertrack.com/.well-known/jwks.json",
+        ...oauth,
       },
     });
-    const res = await app.fetch(new Request(`http://localhost${PRM_PATH}`));
+  }
+
+  it("advertises the authorization server + jwks_uri + resource_documentation when OAuth is configured", async () => {
+    const res = await prmApp().fetch(new Request(`http://localhost${PRM_PATH}${MCP_PATH}`));
+    expect(res.status).toBe(200);
     const body = (await res.json()) as Record<string, unknown>;
-    expect(body["resource"]).toBe("https://mcp.meertrack.com");
+    // The resource identifier is the MCP endpoint including its path — the
+    // string the AS binds as `aud` and the string users paste into Claude.
+    // A bare origin here is the 2026-07 regression; see CHANGELOG.
+    expect(body["resource"]).toBe(RESOURCE);
     expect(body["authorization_servers"]).toEqual(["https://meertrack.com"]);
     expect(body["scopes_supported"]).toEqual(["read"]);
+    expect(body["bearer_methods_supported"]).toEqual(["header"]);
     expect(body["jwks_uri"]).toBe("https://meertrack.com/.well-known/jwks.json");
     expect(body["resource_name"]).toBe("Meertrack MCP");
     expect(body["resource_documentation"]).toBe("https://meertrack.com/developers/api");
+  });
+
+  it("serves the identical document from the bare path and the RFC 9728 §3.1 suffixed path", async () => {
+    const app = prmApp();
+    const [bare, suffixed] = await Promise.all([
+      app.fetch(new Request(`http://localhost${PRM_PATH}`)),
+      app.fetch(new Request(`http://localhost${PRM_PATH}${MCP_PATH}`)),
+    ]);
+    expect(bare.status).toBe(200);
+    expect(suffixed.status).toBe(200);
+    expect(await bare.json()).toEqual(await suffixed.json());
+  });
+
+  it("serves both copies with ACAO: * and a short cache-control", async () => {
+    const app = prmApp();
+    for (const path of [PRM_PATH, `${PRM_PATH}${MCP_PATH}`]) {
+      const res = await app.fetch(new Request(`http://localhost${path}`));
+      expect(res.headers.get("access-control-allow-origin")).toBe("*");
+      expect(res.headers.get("cache-control")).toBe("public, max-age=60");
+    }
+  });
+
+  /**
+   * The regression guard that matters. Asserting a hardcoded literal would not
+   * have caught the original bug — the derivation was wrong, not the constant.
+   * This pins the invariant: whatever `aud` this server validates is what it
+   * advertises, and the metadata route follows that value's path.
+   */
+  it("derives both `resource` and the metadata route from the configured audience", async () => {
+    const app = prmApp({ audience: "https://example.test/foo" });
+
+    const res = await app.fetch(
+      new Request(`http://localhost${PRM_PATH}/foo`),
+    );
+    expect(res.status).toBe(200);
+    expect(((await res.json()) as Record<string, unknown>)["resource"]).toBe(
+      "https://example.test/foo",
+    );
+  });
+
+  it("still serves the /mcp discovery path when the audience is a bare origin", async () => {
+    // Rollback / staging shape. The path Claude probes must exist regardless of
+    // how the audience is spelled, or discovery silently 404s.
+    const app = prmApp({ audience: "https://mcp.meertrack.com" });
+    const res = await app.fetch(new Request(`http://localhost${PRM_PATH}${MCP_PATH}`));
+    expect(res.status).toBe(200);
+    expect(((await res.json()) as Record<string, unknown>)["resource"]).toBe(
+      "https://mcp.meertrack.com",
+    );
+  });
+
+  it("serves discovery to any Origin, bypassing the allowlist", async () => {
+    const app = prmApp();
+    for (const path of [PRM_PATH, `${PRM_PATH}${MCP_PATH}`]) {
+      const res = await app.fetch(
+        new Request(`http://localhost${path}`, {
+          headers: { Origin: "https://evil.example" },
+        }),
+      );
+      expect(res.status).toBe(200);
+    }
+  });
+
+  it("falls back to origin + /mcp when OAuth is not configured", async () => {
+    // Pre-OAuth deploys and local dev. The fallback deliberately includes the
+    // endpoint path: a bare origin would reintroduce the same mismatch here,
+    // and would mean the suffixed route is never exercised outside production.
+    const app = makeApp();
+    const res = await app.fetch(new Request(`http://localhost${PRM_PATH}`));
+    expect(res.status).toBe(200);
+    const body = (await res.json()) as Record<string, unknown>;
+    expect(body["resource"]).toBe(RESOURCE);
+    expect(body["authorization_servers"]).toEqual([]);
+    // OAuth-only fields are absent when OAuth isn't configured.
+    expect(body).not.toHaveProperty("jwks_uri");
+    expect(body).not.toHaveProperty("resource_documentation");
+  });
+
+  it("logs a prm_fetch event so unconverted discovery attempts are visible", async () => {
+    const lines: string[] = [];
+    const app = createHttpApp({
+      allowedOrigins: ALLOWED_ORIGINS,
+      protectedResourceMetadataUrl: PRM_URL,
+      logger: new Logger((line) => lines.push(line)),
+    });
+    await app.fetch(
+      new Request(`http://localhost${PRM_PATH}${MCP_PATH}`, {
+        headers: { "User-Agent": "Claude-User/1.0" },
+      }),
+    );
+    expect(lines).toHaveLength(1);
+    const entry = JSON.parse(lines[0] as string) as Record<string, unknown>;
+    expect(entry["event"]).toBe("prm_fetch");
+    expect(entry["path"]).toBe(`${PRM_PATH}${MCP_PATH}`);
+    expect(entry["client_user_agent"]).toBe("Claude-User/1.0");
   });
 });
 
@@ -172,8 +270,13 @@ describe("POST /mcp — authorization", () => {
     );
     expect(res.status).toBe(401);
     const www = res.headers.get("WWW-Authenticate");
-    expect(www).toContain(`resource_metadata="${PRM_URL}"`);
+    // Claude's primary discovery mechanism: must be the path-suffixed URL, so
+    // the document it lands on names the URL the client just called.
+    expect(www).toContain(`resource_metadata="${CANONICAL_PRM_URL}"`);
     expect(www).toContain('realm="meertrack"');
+    // MCP §Authorization SHOULD — tells a client with no cached PRM what to ask
+    // for at /authorize.
+    expect(www).toContain('scope="read"');
   });
 
   it("returns 401 when Authorization has the wrong prefix", async () => {
@@ -390,7 +493,9 @@ describe("Structured request logging", () => {
 
 describe("POST /mcp — OAuth JWT bearer", () => {
   const ISSUER = "https://meertrack.com";
-  const AUDIENCE = "https://mcp.meertrack.com";
+  // The production audience: the MCP endpoint including its path. Every token in
+  // circulation carries this as `aud`.
+  const AUDIENCE = RESOURCE;
   const JWKS_URL = "https://meertrack.com/.well-known/jwks.json";
 
   interface TestKeys {
@@ -522,10 +627,66 @@ describe("POST /mcp — OAuth JWT bearer", () => {
     );
     expect(res.status).toBe(401);
     const www = res.headers.get("WWW-Authenticate");
-    expect(www).toContain(`resource_metadata="${PRM_URL}"`);
+    expect(www).toContain(`resource_metadata="${CANONICAL_PRM_URL}"`);
     // A bearer was sent but failed verification → tag as invalid_token.
     expect(www).toContain('error="invalid_token"');
     expect(upstreamMock.calls).toHaveLength(0);
+  });
+
+  it("logs auth_outcome=jwt_bad_audience so audience drift is countable", async () => {
+    // The signal that would have made the 2026-07 outage visible. A bare 401
+    // count cannot distinguish this from ordinary token expiry.
+    const lines: string[] = [];
+    const app = createHttpApp({
+      allowedOrigins: ALLOWED_ORIGINS,
+      protectedResourceMetadataUrl: PRM_URL,
+      logger: new Logger((line) => lines.push(line)),
+      fetchImpl: upstreamMock.fetchImpl,
+      oauth: { issuer: ISSUER, audience: AUDIENCE, jwksUrl: JWKS_URL },
+    });
+    const wrongAudience = await new SignJWT({ company_id: "comp_xyz" })
+      .setProtectedHeader({ alg: "RS256", kid: keys.kid })
+      .setIssuedAt()
+      .setIssuer(ISSUER)
+      .setAudience("https://other.example")
+      .setSubject("user_xyz")
+      .setExpirationTime("10m")
+      .sign(keys.privateKey);
+
+    await app.fetch(
+      new Request(MCP_URL, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Accept: "application/json, text/event-stream",
+          Authorization: `Bearer ${wrongAudience}`,
+        },
+        body: JSON.stringify(initializeBody()),
+      }),
+    );
+
+    const entry = JSON.parse(lines.at(-1) as string) as Record<string, unknown>;
+    expect(entry["status"]).toBe(401);
+    expect(entry["auth_outcome"]).toBe("jwt_bad_audience");
+  });
+
+  it("logs auth_outcome=no_credentials when no bearer is sent", async () => {
+    const lines: string[] = [];
+    const app = createHttpApp({
+      allowedOrigins: ALLOWED_ORIGINS,
+      protectedResourceMetadataUrl: PRM_URL,
+      logger: new Logger((line) => lines.push(line)),
+      oauth: { issuer: ISSUER, audience: AUDIENCE, jwksUrl: JWKS_URL },
+    });
+    await app.fetch(
+      new Request(MCP_URL, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(initializeBody()),
+      }),
+    );
+    const entry = JSON.parse(lines.at(-1) as string) as Record<string, unknown>;
+    expect(entry["auth_outcome"]).toBe("no_credentials");
   });
 
   it("still accepts mt_live_ keys even when OAuth is configured", async () => {

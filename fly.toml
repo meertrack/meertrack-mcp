@@ -9,6 +9,11 @@ primary_region = 'iad'
 [build]
 
 [env]
+  # Base only — not the URL advertised on the wire. The served canonical URL is
+  # this value's origin plus the resource identifier's path suffix (RFC 9728
+  # §3.1), i.e. `…/oauth-protected-resource/mcp`, computed in
+  # `src/transports/http.ts`. The resource identifier itself comes from the
+  # MEERTRACK_OAUTH_AUDIENCE secret, never from here.
   MEERTRACK_MCP_PRM_URL = 'https://mcp.meertrack.com/.well-known/oauth-protected-resource'
   MEERTRACK_MCP_PUBLIC_HOST = 'mcp.meertrack.com'
   PORT = '3001'

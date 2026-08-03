@@ -175,7 +175,9 @@ https://mcp.meertrack.com/mcp
 Two auth paths are supported:
 
 - **OAuth 2.1 (recommended)** — spec-conformant MCP clients discover the
-  authorization server at `/.well-known/oauth-protected-resource`, perform
+  authorization server at `/.well-known/oauth-protected-resource/mcp` (RFC 9728
+  §3.1; also served at the bare `/.well-known/oauth-protected-resource` for
+  clients that probe the root), perform
   Dynamic Client Registration at `https://meertrack.com/oauth/register`, and
   drive the full PKCE-gated authorize → token flow. The user clicks
   "Connect", signs in at `meertrack.com`, hits Allow on the consent screen,

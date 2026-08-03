@@ -1,0 +1,77 @@
+# Discovery canary
+#
+# The OAuth resource identifier is the one value that, when wrong, breaks every
+# *new* connection while every existing session keeps working — so nothing in
+# normal traffic surfaces it. In 2026-07 that combination hid a broken
+# authorize flow for a month. This asserts, on a schedule, that the deployed
+# discovery documents still say what they must.
+#
+# Deliberately no secrets: these documents are public.
+#
+# This covers the resource-server half only. The authorization-server half
+# ("zero authorization codes issued in 24h") has to be alerted on in
+# meertrack_frontend — it is the signal that would actually have caught the
+# incident, and it cannot be observed from here.
+
+name: Discovery canary
+
+on:
+  schedule:
+    - cron: "17 */6 * * *"
+  workflow_dispatch:
+
+jobs:
+  probe:
+    name: probe mcp.meertrack.com discovery
+    runs-on: ubuntu-latest
+    env:
+      RESOURCE: https://mcp.meertrack.com/mcp
+      PRM_BASE: https://mcp.meertrack.com/.well-known/oauth-protected-resource
+    steps:
+      - name: Both discovery paths serve the correct resource identifier
+        run: |
+          set -euo pipefail
+          for url in "$PRM_BASE" "$PRM_BASE/mcp"; do
+            echo "── $url"
+            body=$(curl -fsS --max-time 20 "$url")
+            echo "$body" | jq .
+            got=$(echo "$body" | jq -r .resource)
+            if [ "$got" != "$RESOURCE" ]; then
+              echo "::error::$url advertises resource=$got, expected $RESOURCE"
+              exit 1
+            fi
+            as=$(echo "$body" | jq -r '.authorization_servers[0] // ""')
+            if [ "$as" != "https://meertrack.com" ]; then
+              echo "::error::$url advertises authorization_servers[0]=$as"
+              exit 1
+            fi
+          done
+
+      - name: Both copies are byte-identical
+        run: |
+          set -euo pipefail
+          diff <(curl -fsS --max-time 20 "$PRM_BASE") \
+               <(curl -fsS --max-time 20 "$PRM_BASE/mcp") \
+            || { echo "::error::discovery documents diverged between paths"; exit 1; }
+
+      - name: Discovery is fetchable cross-origin
+        run: |
+          set -euo pipefail
+          acao=$(curl -fsS --max-time 20 -o /dev/null -D - "$PRM_BASE/mcp" \
+                 | tr -d '\r' | awk -F': ' 'tolower($1)=="access-control-allow-origin"{print $2}')
+          if [ "$acao" != "*" ]; then
+            echo "::error::missing access-control-allow-origin: * (got '${acao:-none}')"
+            exit 1
+          fi
+
+      - name: 401 points clients at the path-suffixed metadata URL
+        run: |
+          set -euo pipefail
+          hdr=$(curl -sS --max-time 20 -o /dev/null -D - -X POST "$RESOURCE" \
+                  -H 'content-type: application/json' -d '{}' \
+                | tr -d '\r' | awk -F': ' 'tolower($1)=="www-authenticate"{print $2}')
+          echo "WWW-Authenticate: $hdr"
+          case "$hdr" in
+            *"resource_metadata=\"$PRM_BASE/mcp\""*) ;;
+            *) echo "::error::WWW-Authenticate does not point at $PRM_BASE/mcp"; exit 1 ;;
+          esac

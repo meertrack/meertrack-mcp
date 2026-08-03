@@ -10,6 +10,7 @@ import {
   isWellFormedApiKey,
   MissingApiKeyError,
   parseBearerHeader,
+  SUPPORTED_SCOPES,
   redactApiKeys,
   resolveEnvApiKey,
   verifyOAuthToken,
@@ -173,11 +174,18 @@ describe("extractHttpBearer", () => {
 });
 
 describe("buildWwwAuthenticateHeader", () => {
-  it("embeds the PRM URL per RFC 9728", () => {
+  it("embeds the PRM URL per RFC 9728 and advertises scope per RFC 6750 §3", () => {
     const value = buildWwwAuthenticateHeader("https://x.example/.well-known/oauth-protected-resource");
     expect(value).toBe(
-      'Bearer realm="meertrack", resource_metadata="https://x.example/.well-known/oauth-protected-resource"',
+      'Bearer realm="meertrack", resource_metadata="https://x.example/.well-known/oauth-protected-resource", scope="read"',
     );
+  });
+
+  it("keeps scope in sync with SUPPORTED_SCOPES", () => {
+    // The point of sourcing both from one constant: adding a scope to the PRM
+    // must not leave the 401 advertising a stale list.
+    const value = buildWwwAuthenticateHeader("https://x.example/prm");
+    expect(value).toContain(`scope="${SUPPORTED_SCOPES.join(" ")}"`);
   });
 
   it("appends error + error_description when a reason is supplied (RFC 6750 §3)", () => {
@@ -186,7 +194,7 @@ describe("buildWwwAuthenticateHeader", () => {
       { error: "invalid_token", description: "Access token has expired." },
     );
     expect(value).toBe(
-      'Bearer realm="meertrack", resource_metadata="https://x.example/.well-known/oauth-protected-resource", error="invalid_token", error_description="Access token has expired."',
+      'Bearer realm="meertrack", resource_metadata="https://x.example/.well-known/oauth-protected-resource", scope="read", error="invalid_token", error_description="Access token has expired."',
     );
   });
 

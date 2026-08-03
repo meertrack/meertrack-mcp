@@ -14,8 +14,10 @@ import { resolveEnvApiKey } from "./auth.js";
 import { runStdio } from "./transports/stdio.js";
 import {
   createHttpApp,
-  PRM_PATH,
+  resourceMetadataFor,
+  MCP_PATH,
   defaultProtectedResourceMetadataUrl,
+  type CreateHttpAppOptions,
 } from "./transports/http.js";
 
 const DEFAULT_ALLOWED_ORIGINS = [
@@ -89,21 +91,59 @@ async function startHttp(): Promise<void> {
     ? { issuer: oauthIssuer, audience: oauthAudience, jwksUrl: oauthJwksUrl }
     : undefined;
 
-  const app = createHttpApp({
+  const appOptions: CreateHttpAppOptions = {
     allowedOrigins,
     protectedResourceMetadataUrl: prmUrl,
     ...(baseUrl !== undefined ? { baseUrl } : {}),
     ...(oauth !== undefined ? { oauth } : {}),
-  });
+  };
+
+  const metadata = resourceMetadataFor(appOptions);
+  if (oauth) warnOnOddAudience(oauth.audience);
+
+  const app = createHttpApp(appOptions);
 
   serve({ fetch: app.fetch, port, hostname }, (info) => {
+    // Log the derived values, not the raw env — these are what go on the wire,
+    // and a resource identifier that disagrees with the AS is invisible
+    // otherwise until someone fails to connect.
     process.stderr.write(
-      `[meertrack-mcp] http listening on http://${info.address}:${info.port} (PRM: ${prmUrl}, origins: ${allowedOrigins.length})\n`,
+      `[meertrack-mcp] http listening on http://${info.address}:${info.port} (resource: ${metadata.resource}, PRM: ${metadata.canonicalUrl}, origins: ${allowedOrigins.length})\n`,
     );
     process.stderr.write(
-      `[meertrack-mcp] routes: POST /mcp, GET ${PRM_PATH}, GET /health\n`,
+      `[meertrack-mcp] routes: POST ${MCP_PATH}, GET /health, GET ${metadata.paths.join(", GET ")}\n`,
     );
   });
+}
+
+/**
+ * Warn — never throw — when `MEERTRACK_OAUTH_AUDIENCE` isn't the shape a
+ * resource identifier should be (RFC 9728 §1.2: https, no fragment; and for
+ * this server its path should be the MCP endpoint).
+ *
+ * Deliberately non-fatal. This value is only read to build metadata, the
+ * `/.well-known/oauth-protected-resource/mcp` route is registered regardless,
+ * and turning a cosmetic config oddity into a crash-looping deploy would be a
+ * far worse outcome than a slightly wrong document.
+ */
+function warnOnOddAudience(audience: string): void {
+  const warn = (why: string): void => {
+    process.stderr.write(
+      `[meertrack-mcp] warning: MEERTRACK_OAUTH_AUDIENCE (${audience}) ${why}. Token validation is unaffected; discovery metadata may not match what clients expect.\n`,
+    );
+  };
+
+  let parsed: URL;
+  try {
+    parsed = new URL(audience);
+  } catch {
+    warn("is not a URL, so no path-suffixed metadata route can be derived from it");
+    return;
+  }
+  if (parsed.protocol !== "https:") warn("does not use the https scheme");
+  if (parsed.hash) warn("has a fragment, which RFC 9728 §1.2 forbids");
+  const path = parsed.pathname.replace(/\/+$/, "");
+  if (path !== MCP_PATH) warn(`has path "${parsed.pathname}", expected "${MCP_PATH}"`);
 }
 
 function parseAllowedOrigins(value: string): string[] {
