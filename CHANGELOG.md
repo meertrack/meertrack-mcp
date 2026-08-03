@@ -63,6 +63,11 @@ with a `mt_live_…` key, nothing in this release affects you.
   both discovery documents; `/.well-known/*` is now exempt from the origin
   allowlist, since enforcing one there contradicted the CORS header and
   protected nothing (the same bytes are served to a request with no `Origin`).
+- `.github/workflows/publish.yml`: pin the npm upgrade to `npm@^11`. npm 12
+  requires Node ≥ 22.22.2, so `npm install -g npm@latest` began failing with
+  `EBADENGINE` on the Node 20 runner and blocked this release. The 11.x line
+  still performs the Trusted Publisher OIDC token exchange that
+  [1.0.2](#102---2026-04-23) added the step for.
 - **Observability for this class of failure**, which previously had none:
   `auth_outcome` on every 401 (`jwt_bad_audience` is the direct alarm) and a
   `prm_fetch` event. Plus `.github/workflows/prm-canary.yml`, a scheduled probe

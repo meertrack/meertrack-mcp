@@ -24,8 +24,14 @@ jobs:
           cache: npm
           registry-url: "https://registry.npmjs.org"
 
+      # Node 20 ships npm 10.x, which signs provenance but does not exchange the
+      # Actions OIDC token for an npm bearer — see the 1.0.2 CHANGELOG entry.
+      # Pinned to the 11.x line rather than `@latest`: npm 12 requires Node
+      # >=22.22.2 and `npm install -g npm@latest` began failing outright on this
+      # runner. 11.x satisfies the >=11.5.1 the token exchange needs and still
+      # supports the Node 20 floor this package declares in `engines`.
       - name: Upgrade npm (Trusted Publisher OIDC requires npm >=11.5.1)
-        run: npm install -g npm@latest
+        run: npm install -g npm@^11
 
       - name: Install dependencies
         run: npm ci

@@ -158,8 +158,19 @@ then `mcp-publisher login dns ...` with the new hex key.
 
 - **npm `PUT … 404` during publish, with provenance signed.** Workflow's
   npm version is too old for the Trusted Publisher OIDC token exchange (needs
-  npm ≥ 11.5.1). Fix: `npm install -g npm@latest` before `npm ci` in the
-  workflow. See [CHANGELOG.md entry 1.0.2](../CHANGELOG.md).
+  npm ≥ 11.5.1). Fix: upgrade npm before `npm ci` in the workflow. See
+  [CHANGELOG.md entry 1.0.2](../CHANGELOG.md).
+
+- **`EBADENGINE` on the npm upgrade step, publish fails in ~13s.** npm 12
+  requires Node ≥ 22.22.2, so `npm install -g npm@latest` stopped resolving on
+  the Node 20 runner. The step is pinned to `npm@^11` — the oldest line that
+  still does the OIDC exchange and still supports this package's Node 20
+  `engines` floor. If you ever raise `engines`, raise `node-version` in
+  `publish.yml` and `ci.yml` first, then the pin.
+
+  **Fixing this mid-release requires moving the tag.** `actions/checkout@v4`
+  checks out the *tag* ref, so `publish.yml` runs as it existed at the tag —
+  a fix on `main` alone changes nothing. Delete and re-cut the tag (see below).
 
 - **Registry `422 description too long`.** The registry caps
   `description` at 100 chars. `mcp-publisher validate` catches this.
